@@ -12,7 +12,11 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function NavContent({ mobile }: { mobile?: boolean }) {
+interface SidebarProps {
+  mobile?: boolean;
+}
+
+export function Sidebar({ mobile }: SidebarProps) {
   const pathname = usePathname();
 
   return (
