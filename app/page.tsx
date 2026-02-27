@@ -1,7 +1,9 @@
+import Authentication from "./authentication/Authentication";
+
 export default function Home() {
   return (
     <div>
-      Home Page
+      <Authentication/>
     </div>
   );
 }
