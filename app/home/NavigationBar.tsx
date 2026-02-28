@@ -213,15 +213,6 @@ export function NavigationBar({
               )}
             </div>
 
-            {/* Settings */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden sm:flex text-gray-600 hover:text-gray-900"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -268,13 +259,6 @@ export function NavigationBar({
                     >
                       <User className="w-4 h-4" />
                       Profile
-                    </a>
-                    <a
-                      href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Settings
                     </a>
                     <div className="border-t border-gray-100 my-1" />
                     <a
