@@ -246,6 +246,7 @@ export default function DashboardPage() {
           <Button
             variant="link"
             className="text-indigo-600 hover:text-indigo-700 p-0"
+            onClick={() => window.location.href = "/home/tickets"}
           >
             View all
           </Button>

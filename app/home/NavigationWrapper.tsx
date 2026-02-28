@@ -18,12 +18,12 @@ export default function HomeLayout({
         navLinks={[
           {
             name: "Dashboard",
-            href: "/dashboard",
+            href: "/home",
             icon: LayoutDashboard,
             active: true,
           },
-          { name: "My Tickets", href: "/tickets", icon: Ticket },
-          { name: "My Tasks", href: "/tasks", icon: CheckSquare },
+          { name: "My Tickets", href: "/home/tickets", icon: Ticket },
+          { name: "My Tasks", href: "/home/tasks", icon: CheckSquare },
         ]}
         onSearch={(query) => console.log("Searching:", query)}
         onNavigate={(href) => router.push(href)}
