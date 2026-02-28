@@ -4,13 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Plus, LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
 
 export default function DashboardPage() {
@@ -145,8 +138,6 @@ export default function DashboardPage() {
     },
   ];
 
-  const taskStatuses = ["To Do", "In Progress", "In Review", "Completed"];
-
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       Open: "bg-blue-50 text-blue-700 border-blue-200",
@@ -247,106 +238,74 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Recent Tickets */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
-              <CardTitle className="text-lg font-semibold">
-                Recent Tickets
-              </CardTitle>
-              <Button
-                variant="link"
-                className="text-indigo-600 hover:text-indigo-700 p-0"
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
+          <CardTitle className="text-lg font-semibold">
+            Recent Tickets
+          </CardTitle>
+          <Button
+            variant="link"
+            className="text-indigo-600 hover:text-indigo-700 p-0"
+          >
+            View all
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y divide-gray-200">
+            {recentTickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
               >
-                View all
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-gray-200">
-                {recentTickets.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium shrink-0">
-                        {ticket.avatar}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
-                              {ticket.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-500">
-                                {ticket.id}
-                              </span>
-                              <span className="text-gray-300">•</span>
-                              <span className="text-xs text-gray-500">
-                                by {ticket.user}
-                              </span>
-                              <span className="text-gray-300">•</span>
-                              <span className="text-xs text-gray-500">
-                                {ticket.time}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge
-                              variant="outline"
-                              className={getPriorityColor(ticket.priority)}
-                            >
-                              {ticket.priority}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={getStatusColor(ticket.status)}
-                            >
-                              {ticket.status}
-                            </Badge>
-                          </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium shrink-0">
+                    {ticket.avatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          {ticket.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">
+                            {ticket.id}
+                          </span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-xs text-gray-500">
+                            by {ticket.user}
+                          </span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-xs text-gray-500">
+                            {ticket.time}
+                          </span>
                         </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                        >
+                          {ticket.priority}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                        >
+                          {ticket.status}
+                        </Badge>
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions Sidebar */}
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider">
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-gray-700 hover:bg-gray-50"
-              >
-                <LayoutDashboard className="w-5 h-5 mr-3 text-gray-400" />
-                Filter by priority
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-gray-700 hover:bg-gray-50"
-              >
-                <CheckSquare className="w-5 h-5 mr-3 text-gray-400" />
-                Export report
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* My Tasks Section */}
-      <Card>
+      <Card className="mt-8">
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
           <div>
             <CardTitle className="text-lg font-semibold">My Tasks</CardTitle>
@@ -424,29 +383,16 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <Badge
                       variant="outline"
-                      className={getPriorityColor(task.priority)}
+                      className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
                     >
                       {task.priority}
                     </Badge>
-                    <Select
-                      value={task.status}
-                      onValueChange={(value) =>
-                        handleStatusChange(task.id, value)
-                      }
+                    <Badge
+                      variant="outline"
+                      className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
                     >
-                      <SelectTrigger
-                        className={`w-32 text-xs ${getStatusColor(task.status)} border-0`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {taskStatuses.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {task.status}
+                    </Badge>
                   </div>
                 </div>
               </div>
