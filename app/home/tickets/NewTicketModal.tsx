@@ -20,7 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertCircle, User, Paperclip, Calendar } from "lucide-react";
+import { Plus, AlertCircle, User, Paperclip, Calendar, X } from "lucide-react";
+import { TaskPayload } from "@/lib/types";
+import { toast } from "sonner";
+import { createClient } from "@/supabase/client";
 
 interface NewTicketModalProps {
   onSubmit?: (ticket: {
@@ -41,28 +44,136 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.SyntheticEvent) => {
+  async function createTask({
+    title,
+    description,
+    issueType,
+    priority,
+    assignee,
+    deadline,
+    attachment,
+  }: TaskPayload & { attachment?: File | null }) {
+    const supabase = createClient();
+    const userId = localStorage.getItem("userProfile")
+      ? JSON.parse(localStorage.getItem("userProfile")!).user_id
+      : null;
+
+    if (!userId) {
+      toast.error("User not found. Cannot create ticket.");
+      return false;
+    }
+
+    let attachmentId: string | null = null;
+
+    // ─────────────────────────────────────
+    // 1️⃣ Optional attachment handling
+    // ─────────────────────────────────────
+    if (attachment) {
+      try {
+        const filePath = `tickets/${crypto.randomUUID()}-${attachment.name}`;
+
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } =
+          await supabase.storage
+            .from("ticket_attachments")
+            .upload(filePath, attachment);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: publicData } = supabase.storage
+          .from("ticket_attachments")
+          .getPublicUrl(uploadData.path);
+
+        // Insert into files table
+        const { data: fileData, error: fileError } = await supabase
+          .from("files")
+          .insert({
+            url: publicData.publicUrl,
+            type: attachment.type,
+          })
+          .select("file_id")
+          .single();
+
+        if (fileError) throw fileError;
+        console.log("File uploaded and recorded with ID:", fileData.file_id);
+
+        attachmentId = fileData.file_id;
+      } catch (err) {
+        console.error("Attachment upload failed:", err);
+        toast.error(`Failed to upload file ${attachment.name}`);
+      }
+    }
+
+    // ─────────────────────────────────────
+    // 2️⃣ Create ticket
+    // ─────────────────────────────────────
+    try {
+      const toastId = toast.loading("Creating ticket...");
+
+      const { data: ticketData, error: ticketError } = await supabase
+        .from("tickets")
+        .insert({
+          title,
+          description,
+          issue_type: issueType,
+          priority,
+          assigned_to: 1,
+          deadline,
+          assigned_by: userId,
+          file_id: attachmentId,
+        })
+        .select("ticket_id")
+        .single();
+
+      if (ticketError) {
+        toast.error(`Failed to create ticket: ${ticketError.message}`, {
+          id: toastId,
+        });
+        return false;
+      }
+
+      toast.success("Ticket created successfully!", { id: toastId });
+      return ticketData;
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred while creating ticket");
+      return false;
+    }
+  }
+
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    onSubmit?.({
+
+    const ticketData = {
       title,
       description,
       issueType,
       priority,
       assignee,
       deadline,
-    });
-    setOpen(false);
-    // Reset form
-    setTitle("");
-    setDescription("");
-    setIssueType("");
-    setPriority("Medium");
-    setAssignee("");
-    setDeadline("");
-    setFiles([]);
+      attachment: file,
+    };
+
+    const result = await createTask(ticketData);
+
+    if (result) {
+      setOpen(false);
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setIssueType("");
+      setPriority("Medium");
+      setAssignee("");
+      setDeadline("");
+      setFile(null);
+
+      // Optional: notify parent
+      onSubmit?.(ticketData);
+    }
   };
 
   const assignees = [
@@ -90,19 +201,27 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
     { value: "Other", label: "Other" },
   ];
 
-  const handleFiles = (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return;
-    const fileArray = Array.from(selectedFiles);
-    setFiles((prev) => [...prev, ...fileArray]);
+  const handleFileSelect = (selectedFiles: FileList | null) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    setFile(selectedFiles[0]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    handleFiles(e.dataTransfer.files);
+    if (e.dataTransfer.files.length > 0) {
+      setFile(e.dataTransfer.files[0]);
+    }
   };
 
   const handleClick = () => {
     inputRef.current?.click();
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
   };
 
   return (
@@ -230,42 +349,52 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
             </div>
           </div>
 
-          {/* Attachments */}
+          {/* Attachment */}
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
               <Paperclip className="w-3.5 h-3.5 text-gray-500" />
-              Attachments
+              Attachment
             </Label>
 
-            <div
-              onClick={handleClick}
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-              className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-indigo-300 transition-colors cursor-pointer"
-            >
-              <p className="text-sm text-gray-600">
-                Drop files here or click to upload
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Max file size: 10MB</p>
-            </div>
+            {!file ? (
+              <div
+                onClick={handleClick}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-indigo-300 transition-colors cursor-pointer"
+              >
+                <p className="text-sm text-gray-600">
+                  Drop file here or click to upload
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Max file size: 10MB</p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <Paperclip className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-sm text-gray-700 truncate">
+                    {file.name}
+                  </span>
+                  <span className="text-xs text-gray-400 flex-shrink-0">
+                    ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  className="p-1 hover:bg-gray-200 rounded-full transition-colors flex-shrink-0"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+            )}
 
             <input
               type="file"
-              multiple
               ref={inputRef}
               className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={(e) => handleFileSelect(e.target.files)}
             />
-
-            {files.length > 0 && (
-              <ul className="mt-2 text-sm text-gray-700 space-y-1">
-                {files.map((file, index) => (
-                  <li key={index}>
-                    {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           {/* Actions */}

@@ -138,3 +138,13 @@ export interface UserProfile {
   created_at: string; // ISO string
   assignment?: Assignment;
 }
+
+export interface TaskPayload {
+  title: string;
+  description: string;
+  issueType: string;
+  priority: string;
+  assignee: string;
+  deadline: string;
+  attachments?: File[];
+}
