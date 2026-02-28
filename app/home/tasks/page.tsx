@@ -206,13 +206,6 @@ export default function TasksPage() {
     return colors[priority] || "bg-gray-100 text-gray-600";
   };
 
-  const getProgressColor = (progress: number) => {
-    if (progress === 100) return "bg-green-500";
-    if (progress >= 60) return "bg-blue-500";
-    if (progress >= 30) return "bg-amber-500";
-    return "bg-gray-400";
-  };
-
   // Get unique projects for filter
   const projects = Array.from(new Set(tasks.map((t) => t.project)));
 
@@ -278,8 +271,8 @@ export default function TasksPage() {
                     ? 0
                     : task.progress,
             }
-          : task
-      )
+          : task,
+      ),
     );
   };
 

@@ -27,6 +27,7 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import NewTicketModal from "./NewTicketModal";
+import TicketDetailModal from "./TicketDetailModal";
 
 interface Ticket {
   id: string;
@@ -249,6 +250,19 @@ export default function TicketsPage() {
     },
   ];
 
+  const handleStatusChange = (ticketId: string, newStatus: string) => {
+    setTickets((prev) =>
+      prev.map((ticket) =>
+        ticket.id === ticketId
+          ? {
+              ...ticket,
+              status: newStatus as Ticket["status"],
+            }
+          : ticket,
+      ),
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -355,76 +369,79 @@ export default function TicketsPage() {
         <CardContent className="p-0">
           <div className="divide-y divide-gray-200">
             {paginatedTickets.map((ticket) => (
-              <div
+              <TicketDetailModal
                 key={ticket.id}
-                className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                ticket={ticket}
+                onStatusChange={handleStatusChange}
               >
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="shrink-0">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {ticket.assignee.avatar}
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Meta row */}
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                      <span className="font-medium text-gray-900">
-                        {ticket.id}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {ticket.createdAt}
-                      </span>
-                      {ticket.dueDate && (
-                        <>
-                          <span className="text-gray-300">•</span>
-                          <span
-                            className={`flex items-center gap-1 ${
-                              ticket.dueDate === "Today" ||
-                              ticket.dueDate === "Tomorrow"
-                                ? "text-red-600 font-medium"
-                                : ""
-                            }`}
-                          >
-                            <Clock className="w-3 h-3" />
-                            Due {ticket.dueDate}
-                          </span>
-                        </>
-                      )}
+                <div className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="shrink-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                        {ticket.assignee.avatar}
+                      </div>
                     </div>
 
-                    {/* Title */}
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-0.5">
-                      {ticket.title}
-                    </h3>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Meta row */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                        <span className="font-medium text-gray-900">
+                          {ticket.id}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {ticket.createdAt}
+                        </span>
+                        {ticket.dueDate && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <span
+                              className={`flex items-center gap-1 ${
+                                ticket.dueDate === "Today" ||
+                                ticket.dueDate === "Tomorrow"
+                                  ? "text-red-600 font-medium"
+                                  : ""
+                              }`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              Due {ticket.dueDate}
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-                    {/* Description */}
-                    <p className="text-sm text-gray-600 line-clamp-1">
-                      {ticket.description}
-                    </p>
-                  </div>
+                      {/* Title */}
+                      <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-0.5">
+                        {ticket.title}
+                      </h3>
 
-                  {/* Badges */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge
-                      variant="outline"
-                      className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
-                    >
-                      {ticket.priority}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
-                    >
-                      {ticket.status}
-                    </Badge>
+                      {/* Description */}
+                      <p className="text-sm text-gray-600 line-clamp-1">
+                        {ticket.description}
+                      </p>
+                    </div>
+
+                    {/* Badges */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                      >
+                        {ticket.priority}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                      >
+                        {ticket.status}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </TicketDetailModal>
             ))}
           </div>
 
