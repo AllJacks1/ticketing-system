@@ -1,7 +1,32 @@
 "use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/supabase/client";
 import { Card } from "@/components/ui/card";
 
 function Authentication() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
+  const router = useRouter();
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const supabase = createClient(remember);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error(error.message);
+      return;
+    }
+    router.push("/home");
+  };
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4">
       <Card className="w-full max-w-105 bg-white border border-gray-200 shadow-sm rounded-xl">
@@ -34,19 +59,20 @@ function Authentication() {
           </div>
 
           {/* Form */}
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-            {/* Username Field */}
+          <form className="space-y-4" onSubmit={handleSignIn}>
+            {/* Email Field */}
             <div className="space-y-2">
               <label
-                htmlFor="username"
+                htmlFor="email"
                 className="text-sm font-medium text-gray-700 block"
               >
-                Username
+                Email
               </label>
               <input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your Email..."
                 className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
               />
             </div>
@@ -62,7 +88,9 @@ function Authentication() {
               <input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password..."
                 className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
               />
             </div>
@@ -72,6 +100,8 @@ function Authentication() {
               <label className="flex items-center space-x-2 cursor-pointer group">
                 <input
                   type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
                   className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
                 />
                 <span className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors">
