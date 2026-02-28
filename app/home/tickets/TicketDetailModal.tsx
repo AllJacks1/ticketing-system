@@ -26,30 +26,7 @@ import {
   MessageSquare,
   AlertCircle,
 } from "lucide-react";
-
-interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  status: "Open" | "In Progress" | "Waiting" | "Resolved" | "Closed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  assignee: {
-    name: string;
-    avatar: string;
-  };
-  reporter: {
-    name: string;
-    avatar: string;
-  };
-  createdAt: string;
-  dueDate?: string;
-}
-
-interface TicketDetailModalProps {
-  children: React.ReactNode;
-  ticket: Ticket;
-  onStatusChange?: (ticketId: string, newStatus: string) => void;
-}
+import { TicketDetailModalProps } from "@/lib/types";
 
 export default function TicketDetailModal({
   children,

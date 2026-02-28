@@ -26,27 +26,7 @@ import {
   MessageSquare,
   AlertCircle,
 } from "lucide-react";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: "To Do" | "In Progress" | "In Review" | "Completed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  project: string;
-  assignee: {
-    name: string;
-    avatar: string;
-  };
-  createdAt: string;
-  dueDate?: string;
-}
-
-interface TaskDetailModalProps {
-  children: React.ReactNode;
-  task: Task;
-  onStatusChange?: (taskId: string, newStatus: string) => void;
-}
+import { TaskDetailModalProps } from "@/lib/types";
 
 export default function TaskDetailModal({
   children,

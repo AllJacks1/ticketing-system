@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus,
   Search,
   Filter,
   Calendar,
@@ -27,36 +26,16 @@ import {
   ChevronsRight,
   Layout,
   CheckSquare,
-  MoreHorizontal,
 } from "lucide-react";
 import NewTaskModal from "./NewTaskModal";
 import TaskDetailModal from "./TaskDetailModal";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: "To Do" | "In Progress" | "In Review" | "Completed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  project: string;
-  assignee: {
-    name: string;
-    avatar: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  dueDate?: string;
-  progress: number;
-  estimatedHours?: number;
-  loggedHours?: number;
-}
+import { Task } from "@/lib/types";
 
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("updated");
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,9 +53,6 @@ export default function TasksPage() {
       createdAt: "3 days ago",
       updatedAt: "2 hours ago",
       dueDate: "2 days",
-      progress: 65,
-      estimatedHours: 16,
-      loggedHours: 10,
     },
     {
       id: "TASK-002",
@@ -89,9 +65,6 @@ export default function TasksPage() {
       createdAt: "5 days ago",
       updatedAt: "1 day ago",
       dueDate: "5 days",
-      progress: 0,
-      estimatedHours: 12,
-      loggedHours: 0,
     },
     {
       id: "TASK-003",
@@ -104,9 +77,6 @@ export default function TasksPage() {
       createdAt: "1 week ago",
       updatedAt: "3 hours ago",
       dueDate: "Done",
-      progress: 100,
-      estimatedHours: 8,
-      loggedHours: 6,
     },
     {
       id: "TASK-004",
@@ -119,9 +89,6 @@ export default function TasksPage() {
       createdAt: "2 days ago",
       updatedAt: "5 hours ago",
       dueDate: "1 week",
-      progress: 0,
-      estimatedHours: 6,
-      loggedHours: 0,
     },
     {
       id: "TASK-005",
@@ -134,9 +101,6 @@ export default function TasksPage() {
       createdAt: "4 days ago",
       updatedAt: "1 hour ago",
       dueDate: "3 days",
-      progress: 90,
-      estimatedHours: 10,
-      loggedHours: 9,
     },
     {
       id: "TASK-006",
@@ -150,9 +114,6 @@ export default function TasksPage() {
       createdAt: "1 week ago",
       updatedAt: "6 hours ago",
       dueDate: "Tomorrow",
-      progress: 40,
-      estimatedHours: 20,
-      loggedHours: 8,
     },
     {
       id: "TASK-007",
@@ -165,9 +126,6 @@ export default function TasksPage() {
       createdAt: "2 days ago",
       updatedAt: "1 day ago",
       dueDate: "Next week",
-      progress: 0,
-      estimatedHours: 8,
-      loggedHours: 0,
     },
     {
       id: "TASK-008",
@@ -180,9 +138,6 @@ export default function TasksPage() {
       createdAt: "3 days ago",
       updatedAt: "30 min ago",
       dueDate: "Today",
-      progress: 85,
-      estimatedHours: 24,
-      loggedHours: 20,
     },
   ]);
 
@@ -268,8 +223,6 @@ export default function TasksPage() {
                 newStatus === "Completed"
                   ? 100
                   : newStatus === "To Do"
-                    ? 0
-                    : task.progress,
             }
           : task,
       ),

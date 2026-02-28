@@ -8,16 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { User, Mail, Briefcase, Building2 } from "lucide-react";
-
-interface ProfileModalProps {
-  user?: {
-    name: string;
-    email: string;
-    role: string;
-    department?: string;
-    avatar?: string;
-  };
-}
+import { ProfileModalProps } from "@/lib/types";
 
 export default function ProfileModal({ user }: ProfileModalProps) {
   const userData = user || {

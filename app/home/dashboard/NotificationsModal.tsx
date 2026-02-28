@@ -11,15 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, Trash2 } from "lucide-react";
-
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  time: string;
-  unread: boolean;
-  type?: "ticket" | "task" | "system" | "mention";
-}
+import { Notification } from "@/lib/types";
 
 // Example extended notifications for the modal
 const allNotifications: Notification[] = [

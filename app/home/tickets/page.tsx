@@ -28,34 +28,12 @@ import {
 } from "lucide-react";
 import NewTicketModal from "./NewTicketModal";
 import TicketDetailModal from "./TicketDetailModal";
-
-interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  status: "Open" | "In Progress" | "Waiting" | "Resolved" | "Closed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  assignee: {
-    name: string;
-    avatar: string;
-  };
-  reporter: {
-    name: string;
-    avatar: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  dueDate?: string;
-  tags: string[];
-  comments: number;
-  attachments: number;
-}
+import { Ticket } from "@/lib/types";
 
 export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("updated");
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

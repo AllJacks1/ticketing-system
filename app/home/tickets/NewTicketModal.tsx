@@ -21,15 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, AlertCircle, User, Paperclip } from "lucide-react";
-
-interface NewTicketModalProps {
-  onSubmit?: (ticket: {
-    title: string;
-    description: string;
-    priority: string;
-    assignee: string;
-  }) => void;
-}
+import { NewTicketModalProps } from "@/lib/types";
 
 export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [open, setOpen] = useState(false);

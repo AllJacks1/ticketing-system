@@ -21,17 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Calendar, User, Layout, AlertCircle } from "lucide-react";
-
-interface NewTaskModalProps {
-  onSubmit?: (task: {
-    title: string;
-    description: string;
-    project: string;
-    priority: string;
-    assignee: string;
-    dueDate: string;
-  }) => void;
-}
+import { NewTaskModalProps } from "@/lib/types";
 
 export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
   const [open, setOpen] = useState(false);

@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bell,
-  Settings,
-  User,
   LogOut,
   Menu,
   X,
@@ -15,35 +13,9 @@ import {
   Ticket,
   CheckSquare,
 } from "lucide-react";
+import { NavLink, Notification, NavigationBarProps } from "@/lib/types";
 import NotificationsModal from "./dashboard/NotificationsModal";
 import ProfileModal from "./ProfileModal";
-
-interface NavLink {
-  name: string;
-  href: string;
-  icon: React.ElementType;
-  active?: boolean;
-}
-
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  time: string;
-  unread: boolean;
-}
-
-interface NavigationBarProps {
-  user?: {
-    name: string;
-    role: string;
-    avatar?: string;
-  };
-  notifications?: Notification[];
-  navLinks?: NavLink[];
-  onSearch?: (query: string) => void;
-  onNavigate?: (href: string) => void;
-}
 
 const defaultNavLinks: NavLink[] = [
   { name: "Dashboard", href: "#", icon: LayoutDashboard, active: true },
