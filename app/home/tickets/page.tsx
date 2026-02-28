@@ -16,15 +16,15 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
   Calendar,
-  User,
-  ArrowUpDown,
-  CheckCircle2,
   Clock,
   AlertCircle,
-  MessageSquare,
-  Paperclip,
+  CheckCircle2,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 
 interface Ticket {
@@ -54,12 +54,17 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("updated");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   const [tickets, setTickets] = useState<Ticket[]>([
     {
       id: "#2042",
       title: "Login page not loading on mobile devices",
-      description: "Users reporting blank screen when accessing login on iOS Safari",
+      description:
+        "Users reporting blank screen when accessing login on iOS Safari",
       status: "Open",
       priority: "High",
       assignee: { name: "Sarah Chen", avatar: "SC" },
@@ -143,6 +148,35 @@ export default function TicketsPage() {
       comments: 2,
       attachments: 1,
     },
+    {
+      id: "#2036",
+      title: "Fix navigation menu on tablet view",
+      description: "Sidebar not collapsing properly on iPad Pro",
+      status: "Open",
+      priority: "Medium",
+      assignee: { name: "James Lee", avatar: "JL" },
+      reporter: { name: "John Doe", avatar: "JD" },
+      createdAt: "2 days ago",
+      updatedAt: "5 hours ago",
+      dueDate: "3 days",
+      tags: ["ui", "responsive"],
+      comments: 1,
+      attachments: 0,
+    },
+    {
+      id: "#2035",
+      title: "Implement OAuth2 authentication",
+      description: "Add Google and GitHub login options",
+      status: "In Progress",
+      priority: "High",
+      assignee: { name: "Mike Ross", avatar: "MR" },
+      reporter: { name: "Sarah Chen", avatar: "SC" },
+      createdAt: "3 days ago",
+      updatedAt: "1 day ago",
+      tags: ["auth", "feature"],
+      comments: 4,
+      attachments: 1,
+    },
   ]);
 
   const getStatusColor = (status: string) => {
@@ -178,11 +212,37 @@ export default function TicketsPage() {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTickets.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  };
+
   const stats = [
     { label: "Total Tickets", value: tickets.length, icon: AlertCircle },
-    { label: "Open", value: tickets.filter((t) => t.status === "Open").length, icon: Clock },
-    { label: "In Progress", value: tickets.filter((t) => t.status === "In Progress").length, icon: ArrowUpDown },
-    { label: "Resolved", value: tickets.filter((t) => t.status === "Resolved" || t.status === "Closed").length, icon: CheckCircle2 },
+    {
+      label: "Open",
+      value: tickets.filter((t) => t.status === "Open").length,
+      icon: Clock,
+    },
+    {
+      label: "In Progress",
+      value: tickets.filter((t) => t.status === "In Progress").length,
+      icon: ArrowUpDown,
+    },
+    {
+      label: "Resolved",
+      value: tickets.filter(
+        (t) => t.status === "Resolved" || t.status === "Closed"
+      ).length,
+      icon: CheckCircle2,
+    },
   ];
 
   return (
@@ -210,7 +270,9 @@ export default function TicketsPage() {
                 <stat.icon className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stat.value}
+                </p>
                 <p className="text-sm text-gray-500">{stat.label}</p>
               </div>
             </CardContent>
@@ -227,12 +289,15 @@ export default function TicketsPage() {
               <Input
                 placeholder="Search tickets..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
                 className="pl-9"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select 
+                value={statusFilter} 
+                onValueChange={(value) => handleFilterChange(setStatusFilter, value)}
+              >
                 <SelectTrigger className="w-[140px]">
                   <Filter className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Status" />
@@ -247,7 +312,10 @@ export default function TicketsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <Select 
+                value={priorityFilter} 
+                onValueChange={(value) => handleFilterChange(setPriorityFilter, value)}
+              >
                 <SelectTrigger className="w-[160px]">
                   <AlertCircle className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Priority" />
@@ -274,19 +342,28 @@ export default function TicketsPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-gray-200">
-            {filteredTickets.map((ticket) => (
+            {paginatedTickets.map((ticket) => (
               <div
                 key={ticket.id}
                 className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="shrink-0">
+                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                      {ticket.assignee.avatar}
+                    </div>
+                  </div>
+
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-gray-500">
+                    {/* Meta row */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                      <span className="font-medium text-gray-900">
                         {ticket.id}
                       </span>
                       <span className="text-gray-300">•</span>
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {ticket.createdAt}
                       </span>
@@ -294,10 +371,11 @@ export default function TicketsPage() {
                         <>
                           <span className="text-gray-300">•</span>
                           <span
-                            className={`text-xs flex items-center gap-1 ${
-                              ticket.dueDate === "Today" || ticket.dueDate === "Tomorrow"
+                            className={`flex items-center gap-1 ${
+                              ticket.dueDate === "Today" ||
+                              ticket.dueDate === "Tomorrow"
                                 ? "text-red-600 font-medium"
-                                : "text-gray-500"
+                                : ""
                             }`}
                           >
                             <Clock className="w-3 h-3" />
@@ -306,79 +384,126 @@ export default function TicketsPage() {
                         </>
                       )}
                     </div>
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
+
+                    {/* Title */}
+                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-0.5">
                       {ticket.title}
                     </h3>
-                    <p className="text-sm text-gray-600 line-clamp-1 mb-2">
+
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 line-clamp-1">
                       {ticket.description}
                     </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {ticket.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`w-20 justify-center text-center ${getPriorityColor(
-                          ticket.priority
-                        )}`}
-                      >
-                        {ticket.priority}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`w-24 justify-center text-center ${getStatusColor(
-                          ticket.status
-                        )}`}
-                      >
-                        {ticket.status}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        {ticket.comments}
-                      </div>
-                      {ticket.attachments > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Paperclip className="w-3.5 h-3.5" />
-                          {ticket.attachments}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1 ml-2">
-                        <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                          {ticket.assignee.avatar}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  {/* Badges */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                    >
+                      {ticket.priority}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                    >
+                      {ticket.status}
+                    </Badge>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          
+
           {filteredTickets.length === 0 && (
             <div className="p-8 text-center text-gray-500">
               <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p className="text-lg font-medium">No tickets found</p>
-              <p className="text-sm">Try adjusting your filters or search query</p>
+              <p className="text-sm">
+                Try adjusting your filters or search query
+              </p>
+            </div>
+          )}
+
+          {/* Pagination Footer */}
+          {filteredTickets.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>Showing</span>
+                <span className="font-medium text-gray-900">
+                  {startIndex + 1}-{Math.min(endIndex, filteredTickets.length)}
+                </span>
+                <span>of</span>
+                <span className="font-medium text-gray-900">
+                  {filteredTickets.length}
+                </span>
+                <span>tickets</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[100px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  
+                  <span className="text-sm text-gray-600 min-w-[80px] text-center">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
