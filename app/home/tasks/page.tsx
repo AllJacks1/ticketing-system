@@ -30,6 +30,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import NewTaskModal from "./NewTaskModal";
+import TaskDetailModal from "./TaskDetailModal";
 
 interface Task {
   id: string;
@@ -263,6 +264,25 @@ export default function TasksPage() {
     },
   ];
 
+  const handleStatusChange = (taskId: string, newStatus: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: newStatus as Task["status"],
+              progress:
+                newStatus === "Completed"
+                  ? 100
+                  : newStatus === "To Do"
+                    ? 0
+                    : task.progress,
+            }
+          : task
+      )
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -388,94 +408,79 @@ export default function TasksPage() {
         <CardContent className="p-0">
           <div className="divide-y divide-gray-200">
             {paginatedTasks.map((task) => (
-              <div
+              <TaskDetailModal
                 key={task.id}
-                className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                task={task}
+                onStatusChange={handleStatusChange}
               >
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="shrink-0">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {task.assignee.avatar}
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Meta row */}
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                      <span className="font-medium text-gray-900">
-                        {task.id}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="flex items-center gap-1">
-                        <Layout className="w-3 h-3" />
-                        {task.project}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {task.createdAt}
-                      </span>
-                      {task.dueDate && task.dueDate !== "Done" && (
-                        <>
-                          <span className="text-gray-300">•</span>
-                          <span
-                            className={`flex items-center gap-1 ${
-                              task.dueDate.includes("day") &&
-                              parseInt(task.dueDate) <= 2
-                                ? "text-red-600 font-medium"
-                                : ""
-                            }`}
-                          >
-                            <Clock className="w-3 h-3" />
-                            Due in {task.dueDate}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
-                      {task.title}
-                    </h3>
-
-                    {/* Progress Bar */}
-                    <div className="flex items-center gap-3 max-w-md">
-                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${getProgressColor(task.progress)}`}
-                          style={{ width: `${task.progress}%` }}
-                        />
+                <div className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="shrink-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                        {task.assignee.avatar}
                       </div>
-                      <span className="text-xs font-medium text-gray-600 w-8">
-                        {task.progress}%
-                      </span>
-                      {task.estimatedHours && (
-                        <span className="text-xs text-gray-400">
-                          {task.loggedHours || 0}/{task.estimatedHours}h
-                        </span>
-                      )}
                     </div>
-                  </div>
 
-                  {/* Badges */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge
-                      variant="outline"
-                      className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
-                    >
-                      {task.priority}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
-                    >
-                      {task.status}
-                    </Badge>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Meta row */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                        <span className="font-medium text-gray-900">
+                          {task.id}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="flex items-center gap-1">
+                          <Layout className="w-3 h-3" />
+                          {task.project}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {task.createdAt}
+                        </span>
+                        {task.dueDate && task.dueDate !== "Done" && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <span
+                              className={`flex items-center gap-1 ${
+                                task.dueDate.includes("day") &&
+                                parseInt(task.dueDate) <= 2
+                                  ? "text-red-600 font-medium"
+                                  : ""
+                              }`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              Due in {task.dueDate}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
+                        {task.title}
+                      </h3>
+                    </div>
+
+                    {/* Badges */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
+                      >
+                        {task.priority}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
+                      >
+                        {task.status}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </TaskDetailModal>
             ))}
           </div>
 
