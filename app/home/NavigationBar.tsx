@@ -63,12 +63,6 @@ export function NavigationBar({
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    onSearch?.(value);
-  };
-
   const handleNavClick = (href: string) => {
     onNavigate?.(href);
     setIsMobileMenuOpen(false);
@@ -79,7 +73,7 @@ export function NavigationBar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-8 hover:cursor-pointer" onClick={() => (window.location.href = "/home")}>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <Command className="w-5 h-5 text-white" />
