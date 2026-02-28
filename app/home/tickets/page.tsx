@@ -26,6 +26,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import NewTicketModal from "./NewTicketModal";
 
 interface Ticket {
   id: string;
@@ -258,10 +259,12 @@ export default function TicketsPage() {
             Manage and track all support tickets
           </p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4 mr-2" />
-          New Ticket
-        </Button>
+        <NewTicketModal
+          onSubmit={(ticket) => {
+            console.log("New ticket:", ticket);
+            // Add to your tickets list
+          }}
+        />
       </div>
 
       {/* Stats */}

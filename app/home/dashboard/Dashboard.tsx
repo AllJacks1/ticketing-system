@@ -163,25 +163,6 @@ export default function DashboardPage() {
     return colors[priority] || "bg-gray-100 text-gray-600";
   };
 
-  const handleStatusChange = (taskId: string, newStatus: string) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: newStatus,
-              progress:
-                newStatus === "Completed"
-                  ? 100
-                  : newStatus === "To Do"
-                    ? 0
-                    : task.progress,
-            }
-          : task,
-      ),
-    );
-  };
-
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
