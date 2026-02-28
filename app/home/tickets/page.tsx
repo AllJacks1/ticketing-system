@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,139 +25,147 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
 } from "lucide-react";
 import NewTicketModal from "./NewTicketModal";
 import TicketDetailModal from "./TicketDetailModal";
 import { Ticket } from "@/lib/types";
+import { createClient } from "@/supabase/client";
+import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
 
 export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: "#2042",
-      title: "Login page not loading on mobile devices",
-      description:
-        "Users reporting blank screen when accessing login on iOS Safari",
-      status: "Open",
-      priority: "High",
-      assignee: { name: "Sarah Chen", avatar: "SC" },
-      reporter: { name: "Mike Ross", avatar: "MR" },
-      createdAt: "2 hours ago",
-      updatedAt: "5 min ago",
-      dueDate: "Tomorrow",
-      tags: ["mobile", "ios", "bug"],
-      comments: 3,
-      attachments: 1,
-    },
-    {
-      id: "#2041",
-      title: "API timeout error on checkout process",
-      description: "Payment gateway returning 504 errors during peak hours",
-      status: "In Progress",
-      priority: "Urgent",
-      assignee: { name: "John Doe", avatar: "JD" },
-      reporter: { name: "Emma Wilson", avatar: "EW" },
-      createdAt: "5 hours ago",
-      updatedAt: "12 min ago",
-      dueDate: "Today",
-      tags: ["api", "payment", "urgent"],
-      comments: 8,
-      attachments: 2,
-    },
-    {
-      id: "#2040",
-      title: "Update documentation for v2.0 release",
-      description: "API docs need updating with new endpoints",
-      status: "Waiting",
-      priority: "Low",
-      assignee: { name: "Alex Kim", avatar: "AK" },
-      reporter: { name: "James Lee", avatar: "JL" },
-      createdAt: "1 day ago",
-      updatedAt: "1 hour ago",
-      tags: ["docs", "v2.0"],
-      comments: 0,
-      attachments: 0,
-    },
-    {
-      id: "#2039",
-      title: "Dark mode toggle broken in settings",
-      description: "Theme switcher not persisting user preference",
-      status: "Resolved",
-      priority: "Medium",
-      assignee: { name: "Sarah Chen", avatar: "SC" },
-      reporter: { name: "Mike Ross", avatar: "MR" },
-      createdAt: "2 days ago",
-      updatedAt: "2 hours ago",
-      tags: ["ui", "theme"],
-      comments: 5,
-      attachments: 0,
-    },
-    {
-      id: "#2038",
-      title: "Database connection pool exhausted",
-      description: "Production DB reaching max connections under load",
-      status: "Closed",
-      priority: "Urgent",
-      assignee: { name: "John Doe", avatar: "JD" },
-      reporter: { name: "Alex Kim", avatar: "AK" },
-      createdAt: "3 days ago",
-      updatedAt: "1 day ago",
-      tags: ["database", "performance", "infrastructure"],
-      comments: 12,
-      attachments: 3,
-    },
-    {
-      id: "#2037",
-      title: "Add export to CSV feature for reports",
-      description: "Users need ability to download analytics data",
-      status: "Open",
-      priority: "Medium",
-      assignee: { name: "Emma Wilson", avatar: "EW" },
-      reporter: { name: "Sarah Chen", avatar: "SC" },
-      createdAt: "1 day ago",
-      updatedAt: "3 hours ago",
-      dueDate: "Next week",
-      tags: ["feature", "export", "analytics"],
-      comments: 2,
-      attachments: 1,
-    },
-    {
-      id: "#2036",
-      title: "Fix navigation menu on tablet view",
-      description: "Sidebar not collapsing properly on iPad Pro",
-      status: "Open",
-      priority: "Medium",
-      assignee: { name: "James Lee", avatar: "JL" },
-      reporter: { name: "John Doe", avatar: "JD" },
-      createdAt: "2 days ago",
-      updatedAt: "5 hours ago",
-      dueDate: "3 days",
-      tags: ["ui", "responsive"],
-      comments: 1,
-      attachments: 0,
-    },
-    {
-      id: "#2035",
-      title: "Implement OAuth2 authentication",
-      description: "Add Google and GitHub login options",
-      status: "In Progress",
-      priority: "High",
-      assignee: { name: "Mike Ross", avatar: "MR" },
-      reporter: { name: "Sarah Chen", avatar: "SC" },
-      createdAt: "3 days ago",
-      updatedAt: "1 day ago",
-      tags: ["auth", "feature"],
-      comments: 4,
-      attachments: 1,
-    },
-  ]);
+  // Fetch tickets from Supabase
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("tickets")
+        .select(
+          `
+        ticket_id,
+        title,
+        description,
+        status,
+        priority,
+        deadline,
+        created_at,
+        updated_at,
+        files(type, url),
+        assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
+        assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
+      `,
+        )
+        .order("created_at", { ascending: false });
+
+      console.log("Supabase response data:", data);
+
+      if (error) throw error;
+
+      const tickets: Ticket[] = data.map((ticket: any) => ({
+        id: ticket.ticket_id,
+        title: ticket.title,
+        description: ticket.description,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.created_at,
+        updatedAt: ticket.updated_at,
+        dueDate: ticket.deadline || undefined,
+        tags: [],
+        comments: 0,
+
+        // ✅ Correct mapping of attachments
+        attachments: ticket.files
+          ? Array.isArray(ticket.files)
+            ? ticket.files.map((f: any) => ({
+                type: f.type,
+                url: f.url,
+              }))
+            : [{ type: ticket.files.type, url: ticket.files.url }]
+          : [],
+
+        assignee: ticket.assigned_to_user
+          ? {
+              name:
+                ticket.assigned_to_user.first_name +
+                " " +
+                ticket.assigned_to_user.last_name,
+              avatar: getInitials(
+                ticket.assigned_to_user.first_name +
+                  " " +
+                  ticket.assigned_to_user.last_name,
+              ),
+            }
+          : null,
+
+        reporter: ticket.assigned_by_user
+          ? {
+              name:
+                ticket.assigned_by_user.first_name +
+                " " +
+                ticket.assigned_by_user.last_name,
+              avatar: getInitials(
+                ticket.assigned_by_user.first_name +
+                  " " +
+                  ticket.assigned_by_user.last_name,
+              ),
+            }
+          : null,
+      }));
+      setTickets(tickets);
+    } catch (err) {
+      console.error("Error fetching tickets:", err);
+      toast.error("Failed to load tickets");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper to format dates
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60),
+    );
+
+    if (diffInHours < 1) return "Just now";
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return "Yesterday";
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  const formatRelativeDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInDays = Math.floor(
+      (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diffInDays === 0) return "Today";
+    if (diffInDays === 1) return "Tomorrow";
+    if (diffInDays > 1 && diffInDays < 7) return `${diffInDays} days`;
+    return date.toLocaleDateString();
+  };
+
+  // Load tickets on mount
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -241,6 +249,11 @@ export default function TicketsPage() {
     );
   };
 
+  // Refresh tickets after creating new one
+  const handleTicketCreated = () => {
+    fetchTasks();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -251,12 +264,7 @@ export default function TicketsPage() {
             Manage and track all support tickets
           </p>
         </div>
-        <NewTicketModal
-          onSubmit={(ticket) => {
-            console.log("New ticket:", ticket);
-            // Add to your tickets list
-          }}
-        />
+        <NewTicketModal onSubmit={handleTicketCreated} />
       </div>
 
       {/* Stats */}
@@ -345,175 +353,187 @@ export default function TicketsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-gray-200">
-            {paginatedTickets.map((ticket) => (
-              <TicketDetailModal
-                key={ticket.id}
-                ticket={ticket}
-                onStatusChange={handleStatusChange}
-              >
-                <div className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="shrink-0">
-                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                        {ticket.assignee.avatar}
-                      </div>
-                    </div>
+          {loading ? (
+            <div className="p-12 flex flex-col items-center justify-center text-gray-500">
+              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+              <p className="text-sm">Loading tickets...</p>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-200">
+                {paginatedTickets.map((ticket) => (
+                  <TicketDetailModal
+                    key={ticket.id}
+                    ticket={ticket}
+                    onStatusChange={handleStatusChange}
+                  >
+                    <div className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer">
+                      <div className="flex items-center gap-4">
+                        {/* Avatar */}
+                        <div className="shrink-0">
+                          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                            {ticket.assignee?.avatar}
+                          </div>
+                        </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      {/* Meta row */}
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                        <span className="font-medium text-gray-900">
-                          {ticket.id}
-                        </span>
-                        <span className="text-gray-300">•</span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {ticket.createdAt}
-                        </span>
-                        {ticket.dueDate && (
-                          <>
-                            <span className="text-gray-300">•</span>
-                            <span
-                              className={`flex items-center gap-1 ${
-                                ticket.dueDate === "Today" ||
-                                ticket.dueDate === "Tomorrow"
-                                  ? "text-red-600 font-medium"
-                                  : ""
-                              }`}
-                            >
-                              <Clock className="w-3 h-3" />
-                              Due {ticket.dueDate}
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          {/* Meta row */}
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                            <span className="font-medium text-gray-900">
+                              {ticket.id}
                             </span>
-                          </>
-                        )}
+                            <span className="text-gray-300">•</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {ticket.createdAt}
+                            </span>
+                            {ticket.dueDate && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span
+                                  className={`flex items-center gap-1 ${
+                                    ticket.dueDate === "Today" ||
+                                    ticket.dueDate === "Tomorrow"
+                                      ? "text-red-600 font-medium"
+                                      : ""
+                                  }`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  Due {ticket.dueDate}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Title */}
+                          <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-0.5">
+                            {ticket.title}
+                          </h3>
+
+                          {/* Description */}
+                          <p className="text-sm text-gray-600 line-clamp-1">
+                            {ticket.description}
+                          </p>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            variant="outline"
+                            className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                          >
+                            {ticket.priority}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                          >
+                            {ticket.status}
+                          </Badge>
+                        </div>
                       </div>
-
-                      {/* Title */}
-                      <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-0.5">
-                        {ticket.title}
-                      </h3>
-
-                      {/* Description */}
-                      <p className="text-sm text-gray-600 line-clamp-1">
-                        {ticket.description}
-                      </p>
                     </div>
+                  </TicketDetailModal>
+                ))}
+              </div>
 
-                    {/* Badges */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge
+              {filteredTickets.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-lg font-medium">No tickets found</p>
+                  <p className="text-sm">
+                    Try adjusting your filters or search query
+                  </p>
+                </div>
+              )}
+
+              {/* Pagination Footer */}
+              {filteredTickets.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>Showing</span>
+                    <span className="font-medium text-gray-900">
+                      {startIndex + 1}-
+                      {Math.min(endIndex, filteredTickets.length)}
+                    </span>
+                    <span>of</span>
+                    <span className="font-medium text-gray-900">
+                      {filteredTickets.length}
+                    </span>
+                    <span>tickets</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={pageSize.toString()}
+                      onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-1">
+                      <Button
                         variant="outline"
-                        className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
                       >
-                        {ticket.priority}
-                      </Badge>
-                      <Badge
+                        <ChevronsLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
                         variant="outline"
-                        className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
                       >
-                        {ticket.status}
-                      </Badge>
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+
+                      <span className="text-sm text-gray-600 min-w-[80px] text-center">
+                        Page {currentPage} of {totalPages}
+                      </span>
+
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </TicketDetailModal>
-            ))}
-          </div>
-
-          {filteredTickets.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-lg font-medium">No tickets found</p>
-              <p className="text-sm">
-                Try adjusting your filters or search query
-              </p>
-            </div>
-          )}
-
-          {/* Pagination Footer */}
-          {filteredTickets.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <span>Showing</span>
-                <span className="font-medium text-gray-900">
-                  {startIndex + 1}-{Math.min(endIndex, filteredTickets.length)}
-                </span>
-                <span>of</span>
-                <span className="font-medium text-gray-900">
-                  {filteredTickets.length}
-                </span>
-                <span>tickets</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Select
-                  value={pageSize.toString()}
-                  onValueChange={(value) => {
-                    setPageSize(Number(value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[100px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-
-                  <span className="text-sm text-gray-600 min-w-[80px] text-center">
-                    Page {currentPage} of {totalPages}
-                  </span>
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

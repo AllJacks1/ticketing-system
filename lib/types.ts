@@ -53,20 +53,29 @@ export interface Ticket {
   description: string;
   status: "Open" | "In Progress" | "Waiting" | "Resolved" | "Closed";
   priority: "Low" | "Medium" | "High" | "Urgent";
+
   assignee: {
     name: string;
     avatar: string;
-  };
+  } | null;
+
   reporter: {
     name: string;
     avatar: string;
-  };
+  } | null;
+
   createdAt: string;
   updatedAt: string;
   dueDate?: string;
+
   tags: string[];
   comments: number;
-  attachments: number;
+
+  // Each attachment has type and URL
+  attachments: {
+    type: string;
+    url: string;
+  }[];
 }
 
 export interface TicketDetailModalProps {
