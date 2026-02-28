@@ -29,6 +29,7 @@ import {
   CheckSquare,
   MoreHorizontal,
 } from "lucide-react";
+import NewTaskModal from "./NewTaskModal";
 
 interface Task {
   id: string;
@@ -272,10 +273,12 @@ export default function TasksPage() {
             Manage development tasks and track progress
           </p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4 mr-2" />
-          New Task
-        </Button>
+        <NewTaskModal
+          onSubmit={(task) => {
+            console.log("New task:", task);
+            // Add to your tasks list
+          }}
+        />
       </div>
 
       {/* Stats */}
