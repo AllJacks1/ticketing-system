@@ -105,3 +105,35 @@ export interface TaskDetailModalProps {
   task: Task;
   onStatusChange?: (taskId: string, newStatus: string) => void;
 }
+
+export interface Designation {
+  name: string;
+}
+
+export interface Role {
+  name: string;
+}
+
+export interface Assignment {
+  designation_id: number;
+  role_id: number;
+  designation: Designation;
+  role: Role;
+}
+
+// Main user interface
+export interface UserProfile {
+  user_id: number;
+  auth_user_id: string;
+  username: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  email: string;
+  birthday: string; // ISO string
+  sex: string;
+  mobile_number: string;
+  address?: string;
+  created_at: string; // ISO string
+  assignment?: Assignment;
+}

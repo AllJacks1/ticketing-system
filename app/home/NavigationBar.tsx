@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bell,
@@ -15,10 +15,13 @@ import {
 } from "lucide-react";
 import { NavLink, Notification, NavigationBarProps } from "@/lib/types";
 import NotificationsModal from "./dashboard/NotificationsModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import ProfileModal from "./ProfileModal";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
+import { UserProfile } from "@/lib/types";
 
 const defaultNavLinks: NavLink[] = [
   { name: "Dashboard", href: "#", icon: LayoutDashboard, active: true },
@@ -62,7 +65,22 @@ export function NavigationBar({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const [cachedUser, setCachedUser] = useState<UserProfile | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      const storedProfile = localStorage.getItem("userProfile");
+      if (storedProfile) {
+        const userData = JSON.parse(storedProfile);
+        setCachedUser(userData);
+        console.log("Cached user loaded:", userData);
+      }
+    } catch (err) {
+      console.error("Error reading cached user:", err);
+      toast.error("Failed to load user profile");
+    }
+  }, []);
 
   const handleNavClick = (href: string) => {
     onNavigate?.(href);
@@ -70,39 +88,39 @@ export function NavigationBar({
   };
 
   const handleLogout = async () => {
-  const supabase = createClient();
+    const supabase = createClient();
 
-  try {
-    // 1️⃣ Show a loading toast
-    const toastId = toast.loading("Logging out...");
+    try {
+      // 1️⃣ Show a loading toast
+      const toastId = toast.loading("Logging out...");
 
-    // 2️⃣ Sign out from Supabase
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(`Logout failed: ${error.message}`, { id: toastId });
-      return;
+      // 2️⃣ Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(`Logout failed: ${error.message}`, { id: toastId });
+        return;
+      }
+
+      // 3️⃣ Clear local/session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 4️⃣ Clear all cookies
+      document.cookie.split(";").forEach((cookie) => {
+        const name = cookie.split("=")[0].trim();
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      });
+
+      // 5️⃣ Success toast
+      toast.success("Logged out successfully!", { id: toastId });
+
+      // 6️⃣ Redirect to login page
+      router.replace("/");
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred during logout");
     }
-
-    // 3️⃣ Clear local/session storage
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // 4️⃣ Clear all cookies
-    document.cookie.split(";").forEach((cookie) => {
-      const name = cookie.split("=")[0].trim();
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-    });
-
-    // 5️⃣ Success toast
-    toast.success("Logged out successfully!", { id: toastId });
-
-    // 6️⃣ Redirect to login page
-    router.replace("/");
-  } catch (err) {
-    console.error(err);
-    toast.error("An unexpected error occurred during logout");
-  }
-};
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
@@ -222,17 +240,32 @@ export function NavigationBar({
                 className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {user.avatar ||
-                    user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                  {cachedUser ? (
+                    getInitials(
+                      `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim(),
+                    )
+                  ) : (
+                    <div></div>
+                  )}
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{user.role}</p>
+                  <div className="hidden md:block text-left">
+                    <div className="text-sm font-medium text-gray-900">
+                      {cachedUser ? (
+                        `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                      ) : (
+                        <Skeleton className="w-20 h-4" />
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {cachedUser?.assignment?.role?.name ||
+                        (cachedUser === null ? (
+                          <Skeleton className="w-16 h-3" />
+                        ) : (
+                          user.role
+                        ))}
+                    </div>
+                  </div>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-400 transition-transform ${
@@ -257,15 +290,26 @@ export function NavigationBar({
                     </div>
                     <ProfileModal
                       user={{
-                        name: "Jane Smith",
-                        email: "jane.smith@issuelane.com",
-                        role: "Developer",
-                        department: "Engineering",
-                        avatar: "JS",
+                        name: cachedUser
+                          ? `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                          : user.name,
+                        email: cachedUser?.email || "",
+                        role: cachedUser?.assignment?.role?.name || user.role,
+                        department:
+                          cachedUser?.assignment?.designation?.name ||
+                          "Unknown",
+                        avatar: cachedUser
+                          ? getInitials(
+                              `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim(),
+                            )
+                          : user.avatar,
                       }}
                     />
                     <div className="border-t border-gray-100 my-1" />
-                    <a className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50" onClick={handleLogout}>
+                    <a
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      onClick={handleLogout}
+                    >
                       <LogOut className="w-4 h-4" />
                       Sign out
                     </a>
