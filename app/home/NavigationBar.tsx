@@ -16,6 +16,8 @@ import {
 import { NavLink, Notification, NavigationBarProps } from "@/lib/types";
 import NotificationsModal from "./dashboard/NotificationsModal";
 import ProfileModal from "./ProfileModal";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/supabase/client";
 
 const defaultNavLinks: NavLink[] = [
   { name: "Dashboard", href: "#", icon: LayoutDashboard, active: true },
@@ -59,13 +61,33 @@ export function NavigationBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const router = useRouter();
 
   const handleNavClick = (href: string) => {
     onNavigate?.(href);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Logout error:", error.message);
+      return;
+    }
+
+    localStorage.clear();
+    sessionStorage.clear();
+
+    document.cookie.split(";").forEach((cookie) => {
+      const name = cookie.split("=")[0].trim();
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    });
+
+    router.replace("/");
   };
 
   return (
@@ -73,7 +95,10 @@ export function NavigationBar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-8 hover:cursor-pointer" onClick={() => (window.location.href = "/home")}>
+          <div
+            className="flex items-center gap-8 hover:cursor-pointer"
+            onClick={() => (window.location.href = "/home")}
+          >
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <Command className="w-5 h-5 text-white" />
@@ -226,10 +251,7 @@ export function NavigationBar({
                       }}
                     />
                     <div className="border-t border-gray-100 my-1" />
-                    <a
-                      href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
+                    <a className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50" onClick={handleLogout}>
                       <LogOut className="w-4 h-4" />
                       Sign out
                     </a>
