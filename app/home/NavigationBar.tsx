@@ -15,6 +15,7 @@ import {
   Ticket,
   CheckSquare,
 } from "lucide-react";
+import NotificationsModal from "./dashboard/NotificationsModal";
 
 interface NavLink {
   name: string;
@@ -201,12 +202,7 @@ export function NavigationBar({
                       ))}
                     </div>
                     <div className="p-3 border-t border-gray-100 bg-gray-50">
-                      <Button
-                        variant="ghost"
-                        className="w-full text-sm text-indigo-600 hover:text-indigo-700"
-                      >
-                        View all notifications
-                      </Button>
+                      <NotificationsModal />
                     </div>
                   </div>
                 </>
