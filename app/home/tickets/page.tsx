@@ -54,7 +54,7 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("updated");
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -219,7 +219,10 @@ export default function TicketsPage() {
   const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+  const handleFilterChange = (
+    setter: (value: string) => void,
+    value: string,
+  ) => {
     setter(value);
     setCurrentPage(1);
   };
@@ -239,7 +242,7 @@ export default function TicketsPage() {
     {
       label: "Resolved",
       value: tickets.filter(
-        (t) => t.status === "Resolved" || t.status === "Closed"
+        (t) => t.status === "Resolved" || t.status === "Closed",
       ).length,
       icon: CheckCircle2,
     },
@@ -289,14 +292,18 @@ export default function TicketsPage() {
               <Input
                 placeholder="Search tickets..."
                 value={searchQuery}
-                onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
+                onChange={(e) =>
+                  handleFilterChange(setSearchQuery, e.target.value)
+                }
                 className="pl-9"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select 
-                value={statusFilter} 
-                onValueChange={(value) => handleFilterChange(setStatusFilter, value)}
+              <Select
+                value={statusFilter}
+                onValueChange={(value) =>
+                  handleFilterChange(setStatusFilter, value)
+                }
               >
                 <SelectTrigger className="w-[140px]">
                   <Filter className="w-4 h-4 mr-2" />
@@ -312,9 +319,11 @@ export default function TicketsPage() {
                 </SelectContent>
               </Select>
 
-              <Select 
-                value={priorityFilter} 
-                onValueChange={(value) => handleFilterChange(setPriorityFilter, value)}
+              <Select
+                value={priorityFilter}
+                onValueChange={(value) =>
+                  handleFilterChange(setPriorityFilter, value)
+                }
               >
                 <SelectTrigger className="w-[160px]">
                   <AlertCircle className="w-4 h-4 mr-2" />
@@ -479,16 +488,18 @@ export default function TicketsPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  
+
                   <span className="text-sm text-gray-600 min-w-[80px] text-center">
                     Page {currentPage} of {totalPages}
                   </span>
-                  
+
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="w-4 h-4" />

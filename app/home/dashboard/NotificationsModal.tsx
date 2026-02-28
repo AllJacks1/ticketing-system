@@ -186,18 +186,18 @@ const allNotifications: Notification[] = [
 ];
 
 function NotificationsModal() {
-  const [notifications, setNotifications] = useState<Notification[]>(allNotifications);
+  const [notifications, setNotifications] =
+    useState<Notification[]>(allNotifications);
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
-  const filteredNotifications = filter === "unread" 
-    ? notifications.filter((n) => n.unread) 
-    : notifications;
+  const filteredNotifications =
+    filter === "unread" ? notifications.filter((n) => n.unread) : notifications;
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   const markAsRead = (id: number) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+      prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
     );
   };
 
@@ -229,7 +229,7 @@ function NotificationsModal() {
           View all notifications
         </Button>
       </DialogTrigger>
-      
+
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -304,8 +304,10 @@ function NotificationsModal() {
                       : "hover:bg-gray-50"
                   }`}
                 >
-                  <span className="text-xl">{getTypeIcon(notification.type || "system")}</span>
-                  
+                  <span className="text-xl">
+                    {getTypeIcon(notification.type || "system")}
+                  </span>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -322,7 +324,7 @@ function NotificationsModal() {
                           {notification.time}
                         </p>
                       </div>
-                      
+
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {notification.unread && (
                           <Button

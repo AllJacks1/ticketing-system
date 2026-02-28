@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
+import NewTicketModal from "@/app/home/tickets/NewTicketModal";
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState([
@@ -190,10 +191,12 @@ export default function DashboardPage() {
             Overview of your support tickets and development tasks
           </p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4 mr-2" />
-          New Ticket
-        </Button>
+        <NewTicketModal
+          onSubmit={(ticket) => {
+            console.log("New ticket:", ticket);
+            // Add to your tickets list
+          }}
+        />
       </div>
 
       {/* Stats Grid */}
@@ -246,7 +249,7 @@ export default function DashboardPage() {
           <Button
             variant="link"
             className="text-indigo-600 hover:text-indigo-700 p-0"
-            onClick={() => window.location.href = "/home/tickets"}
+            onClick={() => (window.location.href = "/home/tickets")}
           >
             View all
           </Button>

@@ -1,12 +1,12 @@
 "use client";
-import Dashboard from "./dashboard/Dashboard"
+import Dashboard from "./dashboard/Dashboard";
 
 function HomePage() {
   return (
     <div>
-      <Dashboard/>
+      <Dashboard />
     </div>
-  )
+  );
 }
 
-export default HomePage
+export default HomePage;

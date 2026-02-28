@@ -55,7 +55,7 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("updated");
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -139,7 +139,8 @@ export default function TasksPage() {
     {
       id: "TASK-006",
       title: "Setup CI/CD pipeline",
-      description: "Configure GitHub Actions for automated testing and deployment",
+      description:
+        "Configure GitHub Actions for automated testing and deployment",
       status: "In Progress",
       priority: "High",
       project: "IssueLane Infrastructure",
@@ -188,7 +189,7 @@ export default function TasksPage() {
       "To Do": "bg-gray-100 text-gray-700 border-gray-200",
       "In Progress": "bg-amber-50 text-amber-700 border-amber-200",
       "In Review": "bg-purple-50 text-purple-700 border-purple-200",
-      "Completed": "bg-green-50 text-green-700 border-green-200",
+      Completed: "bg-green-50 text-green-700 border-green-200",
     };
     return colors[status] || "bg-gray-100 text-gray-700";
   };
@@ -234,7 +235,10 @@ export default function TasksPage() {
   const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+  const handleFilterChange = (
+    setter: (value: string) => void,
+    value: string,
+  ) => {
     setter(value);
     setCurrentPage(1);
   };
@@ -302,14 +306,18 @@ export default function TasksPage() {
               <Input
                 placeholder="Search tasks..."
                 value={searchQuery}
-                onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
+                onChange={(e) =>
+                  handleFilterChange(setSearchQuery, e.target.value)
+                }
                 className="pl-9"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select 
-                value={statusFilter} 
-                onValueChange={(value) => handleFilterChange(setStatusFilter, value)}
+              <Select
+                value={statusFilter}
+                onValueChange={(value) =>
+                  handleFilterChange(setStatusFilter, value)
+                }
               >
                 <SelectTrigger className="w-[140px]">
                   <Filter className="w-4 h-4 mr-2" />
@@ -324,9 +332,11 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
 
-              <Select 
-                value={priorityFilter} 
-                onValueChange={(value) => handleFilterChange(setPriorityFilter, value)}
+              <Select
+                value={priorityFilter}
+                onValueChange={(value) =>
+                  handleFilterChange(setPriorityFilter, value)
+                }
               >
                 <SelectTrigger className="w-[160px]">
                   <AlertCircle className="w-4 h-4 mr-2" />
@@ -341,9 +351,11 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
 
-              <Select 
-                value={projectFilter} 
-                onValueChange={(value) => handleFilterChange(setProjectFilter, value)}
+              <Select
+                value={projectFilter}
+                onValueChange={(value) =>
+                  handleFilterChange(setProjectFilter, value)
+                }
               >
                 <SelectTrigger className="w-[260px]">
                   <Layout className="w-4 h-4 mr-2" />
@@ -407,7 +419,8 @@ export default function TasksPage() {
                           <span className="text-gray-300">•</span>
                           <span
                             className={`flex items-center gap-1 ${
-                              task.dueDate.includes("day") && parseInt(task.dueDate) <= 2
+                              task.dueDate.includes("day") &&
+                              parseInt(task.dueDate) <= 2
                                 ? "text-red-600 font-medium"
                                 : ""
                             }`}
@@ -526,16 +539,18 @@ export default function TasksPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  
+
                   <span className="text-sm text-gray-600 min-w-[80px] text-center">
                     Page {currentPage} of {totalPages}
                   </span>
-                  
+
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="w-4 h-4" />
