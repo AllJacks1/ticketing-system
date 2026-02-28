@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 function Authentication() {
   const [email, setEmail] = useState("");
@@ -15,68 +16,80 @@ function Authentication() {
 
     const supabase = createClient(remember);
 
-    // 1️⃣ Sign in
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    try {
+      // 1️⃣ Start a single loading toast
+      const toastId = toast.loading("Signing in...");
 
-    if (authError) {
-      console.error(authError.message);
-      return;
+      // Sign in
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({ email, password });
+
+      if (authError) {
+        toast.error(`Login failed: ${authError.message}`, { id: toastId });
+        return;
+      }
+
+      const userId = authData.user?.id;
+      if (!userId) {
+        toast.error("User ID not found after login", { id: toastId });
+        return;
+      }
+
+      toast.success("Signed in successfully!", { id: toastId });
+
+      // 2️⃣ Fetch profile
+      toast.loading("Fetching profile...", { id: toastId });
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_user_id", userId)
+        .single();
+
+      if (profileError) {
+        toast.error(`Error fetching profile: ${profileError.message}`, {
+          id: toastId,
+        });
+        return;
+      }
+      toast.success("Profile loaded", { id: toastId });
+
+      // 3️⃣ Fetch assignment info
+      toast.loading("Fetching assignment info...", { id: toastId });
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("user_assignments")
+        .select(
+          `
+        designation_id,
+        role_id,
+        designation:designations(name),
+        role:roles(name)
+      `,
+        )
+        .eq("user_id", profile.user_id)
+        .single();
+
+      if (assignmentError) {
+        toast.error(`Error fetching assignment: ${assignmentError.message}`, {
+          id: toastId,
+        });
+        return;
+      }
+      toast.success("Assignment info loaded", { id: toastId });
+
+      // 4️⃣ Combine profile + assignment
+      const userData = { ...profile, assignment };
+
+      // 5️⃣ Cache it
+      localStorage.setItem("userProfile", JSON.stringify(userData));
+
+      toast.success("Login complete! Redirecting...", { id: toastId });
+
+      // 6️⃣ Redirect
+      router.push("/home");
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred during login");
     }
-
-    const userId = authData.user?.id;
-    if (!userId) {
-      console.error("User ID not found after login");
-      return;
-    }
-
-    // 2️⃣ Fetch profile
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("auth_user_id", userId)
-      .single();
-
-    if (profileError) {
-      console.error("Error fetching user profile:", profileError.message);
-      return;
-    }
-
-    // 3️⃣ Fetch assignment info (designation + role)
-    const { data: assignment, error: assignmentError } = await supabase
-      .from("user_assignments")
-      .select(
-        `
-      designation_id,
-      role_id,
-      designation:designations(name),
-      role:roles(name)
-    `,
-      )
-      .eq("user_id", profile.user_id)
-      .single();
-
-    if (assignmentError) {
-      console.error("Error fetching assignment:", assignmentError.message);
-      return;
-    }
-
-    // 4️⃣ Combine profile + assignment
-    const userData = {
-      ...profile,
-      assignment,
-    };
-
-    console.log("User Data:", userData);
-
-    // 5️⃣ Cache it locally (or in React state)
-    localStorage.setItem("userProfile", JSON.stringify(userData));
-
-    // 6️⃣ Redirect
-    router.push("/home");
   };
 
   return (

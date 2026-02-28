@@ -18,6 +18,7 @@ import NotificationsModal from "./dashboard/NotificationsModal";
 import ProfileModal from "./ProfileModal";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
+import { toast } from "sonner";
 
 const defaultNavLinks: NavLink[] = [
   { name: "Dashboard", href: "#", icon: LayoutDashboard, active: true },
@@ -55,7 +56,6 @@ export function NavigationBar({
   user = { name: "John Doe", role: "Product Manager", avatar: "JD" },
   notifications = defaultNotifications,
   navLinks = defaultNavLinks,
-  onSearch,
   onNavigate,
 }: NavigationBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,25 +70,39 @@ export function NavigationBar({
   };
 
   const handleLogout = async () => {
-    const supabase = createClient();
+  const supabase = createClient();
 
+  try {
+    // 1️⃣ Show a loading toast
+    const toastId = toast.loading("Logging out...");
+
+    // 2️⃣ Sign out from Supabase
     const { error } = await supabase.auth.signOut();
-
     if (error) {
-      console.error("Logout error:", error.message);
+      toast.error(`Logout failed: ${error.message}`, { id: toastId });
       return;
     }
 
+    // 3️⃣ Clear local/session storage
     localStorage.clear();
     sessionStorage.clear();
 
+    // 4️⃣ Clear all cookies
     document.cookie.split(";").forEach((cookie) => {
       const name = cookie.split("=")[0].trim();
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
 
+    // 5️⃣ Success toast
+    toast.success("Logged out successfully!", { id: toastId });
+
+    // 6️⃣ Redirect to login page
     router.replace("/");
-  };
+  } catch (err) {
+    console.error(err);
+    toast.error("An unexpected error occurred during logout");
+  }
+};
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
