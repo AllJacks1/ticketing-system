@@ -16,6 +16,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import NotificationsModal from "./dashboard/NotificationsModal";
+import ProfileModal from "./ProfileModal";
 
 interface NavLink {
   name: string;
@@ -249,13 +250,15 @@ export function NavigationBar({
                       </p>
                       <p className="text-xs text-gray-500">{user.role}</p>
                     </div>
-                    <a
-                      href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <User className="w-4 h-4" />
-                      Profile
-                    </a>
+                    <ProfileModal
+                      user={{
+                        name: "Jane Smith",
+                        email: "jane.smith@issuelane.com",
+                        role: "Developer",
+                        department: "Engineering",
+                        avatar: "JS",
+                      }}
+                    />
                     <div className="border-t border-gray-100 my-1" />
                     <a
                       href="#"
