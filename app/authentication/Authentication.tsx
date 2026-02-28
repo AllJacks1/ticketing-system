@@ -15,15 +15,67 @@ function Authentication() {
 
     const supabase = createClient(remember);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // 1️⃣ Sign in
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      console.error(error.message);
+    if (authError) {
+      console.error(authError.message);
       return;
     }
+
+    const userId = authData.user?.id;
+    if (!userId) {
+      console.error("User ID not found after login");
+      return;
+    }
+
+    // 2️⃣ Fetch profile
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", userId)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError.message);
+      return;
+    }
+
+    // 3️⃣ Fetch assignment info (designation + role)
+    const { data: assignment, error: assignmentError } = await supabase
+      .from("user_assignments")
+      .select(
+        `
+      designation_id,
+      role_id,
+      designation:designations(name),
+      role:roles(name)
+    `,
+      )
+      .eq("user_id", profile.user_id)
+      .single();
+
+    if (assignmentError) {
+      console.error("Error fetching assignment:", assignmentError.message);
+      return;
+    }
+
+    // 4️⃣ Combine profile + assignment
+    const userData = {
+      ...profile,
+      assignment,
+    };
+
+    console.log("User Data:", userData);
+
+    // 5️⃣ Cache it locally (or in React state)
+    localStorage.setItem("userProfile", JSON.stringify(userData));
+
+    // 6️⃣ Redirect
     router.push("/home");
   };
 
