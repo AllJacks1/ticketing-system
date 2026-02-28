@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
 import NewTicketModal from "@/app/home/tickets/NewTicketModal";
+import NewTaskModal from "../tasks/NewTaskModal";
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState([
@@ -165,19 +166,33 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col gap-6 mb-8 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
             Overview of your support tickets and development tasks
           </p>
         </div>
-        <NewTicketModal
-          onSubmit={(ticket) => {
-            console.log("New ticket:", ticket);
-            // Add to your tickets list
-          }}
-        />
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <NewTicketModal
+            onSubmit={(ticket) => {
+              console.log("New ticket:", ticket);
+              // TODO: Add ticket to state or trigger mutation
+            }}
+          />
+
+          <NewTaskModal
+            onSubmit={(task) => {
+              console.log("New task:", task);
+              // TODO: Add task to state or trigger mutation
+            }}
+          />
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -344,25 +359,6 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-gray-900 mb-2">
                       {task.title}
                     </p>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden max-w-xs">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            task.progress === 100
-                              ? "bg-green-500"
-                              : task.progress > 60
-                                ? "bg-blue-500"
-                                : task.progress > 30
-                                  ? "bg-amber-500"
-                                  : "bg-gray-400"
-                          }`}
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-600 font-medium">
-                        {task.progress}%
-                      </span>
-                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
