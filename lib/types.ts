@@ -79,6 +79,7 @@ export interface NewTicketModalProps {
   onSubmit?: (ticket: {
     title: string;
     description: string;
+    issueType: string;
     priority: string;
     assignee: string;
   }) => void;

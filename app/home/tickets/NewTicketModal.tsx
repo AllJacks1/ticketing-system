@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,30 +20,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertCircle, User, Paperclip } from "lucide-react";
-import { NewTicketModalProps } from "@/lib/types";
+import { Plus, AlertCircle, User, Paperclip, Calendar } from "lucide-react";
+
+interface NewTicketModalProps {
+  onSubmit?: (ticket: {
+    title: string;
+    description: string;
+    issueType: string;
+    priority: string;
+    assignee: string;
+    deadline: string;
+  }) => void;
+}
 
 export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [issueType, setIssueType] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     onSubmit?.({
       title,
       description,
+      issueType,
       priority,
       assignee,
+      deadline,
     });
     setOpen(false);
     // Reset form
     setTitle("");
     setDescription("");
+    setIssueType("");
     setPriority("Medium");
     setAssignee("");
+    setDeadline("");
+    setFiles([]);
   };
 
   const assignees = [
@@ -61,6 +80,30 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
     { value: "High", label: "High", color: "text-orange-600" },
     { value: "Urgent", label: "Urgent", color: "text-red-600" },
   ];
+
+  const issueTypes = [
+    { value: "Network", label: "Network" },
+    { value: "Software", label: "Software" },
+    { value: "Hardware", label: "Hardware" },
+    { value: "Access", label: "Access" },
+    { value: "Email", label: "Email" },
+    { value: "Other", label: "Other" },
+  ];
+
+  const handleFiles = (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    const fileArray = Array.from(selectedFiles);
+    setFiles((prev) => [...prev, ...fileArray]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  };
+
+  const handleClick = () => {
+    inputRef.current?.click();
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -106,49 +149,85 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
             />
           </div>
 
-          {/* Priority */}
-          <div className="space-y-1.5">
-            <Label htmlFor="priority" className="flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-gray-500" />
-              Priority
-            </Label>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {priorities.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <span className={p.color}>{p.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Issue Type */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-gray-500" />
+                Issue Type
+              </Label>
+              <Select value={issueType} onValueChange={setIssueType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {issueTypes.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>
+                      {i.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Assignee */}
-          <div className="space-y-1.5">
-            <Label htmlFor="assignee" className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-gray-500" />
-              Assignee
-            </Label>
-            <Select value={assignee} onValueChange={setAssignee}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                {assignees.map((person) => (
-                  <SelectItem key={person.avatar} value={person.name}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-medium">
-                        {person.avatar}
+            {/* Priority */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-gray-500" />
+                Priority
+              </Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      <span className={p.color}>{p.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignee */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-gray-500" />
+                Assignee
+              </Label>
+              <Select value={assignee} onValueChange={setAssignee}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignees.map((person) => (
+                    <SelectItem key={person.avatar} value={person.name}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-medium">
+                          {person.avatar}
+                        </div>
+                        {person.name}
                       </div>
-                      {person.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                Deadline
+              </Label>
+              <Input
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="w-full"
+              />
+            </div>
           </div>
 
           {/* Attachments */}
@@ -157,17 +236,45 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
               <Paperclip className="w-3.5 h-3.5 text-gray-500" />
               Attachments
             </Label>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-indigo-300 transition-colors cursor-pointer">
+
+            <div
+              onClick={handleClick}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-indigo-300 transition-colors cursor-pointer"
+            >
               <p className="text-sm text-gray-600">
                 Drop files here or click to upload
               </p>
               <p className="text-xs text-gray-400 mt-1">Max file size: 10MB</p>
             </div>
+
+            <input
+              type="file"
+              multiple
+              ref={inputRef}
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+
+            {files.length > 0 && (
+              <ul className="mt-2 text-sm text-gray-700 space-y-1">
+                {files.map((file, index) => (
+                  <li key={index}>
+                    {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
             <Button
