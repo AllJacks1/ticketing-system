@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Command } from "lucide-react";
 import { toast } from "sonner";
 
 function Authentication() {
@@ -99,19 +100,7 @@ function Authentication() {
           {/* Logo & Brand */}
           <div className="flex flex-col items-center space-y-3">
             <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-              <svg
-                className="w-7 h-7 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
+              <Command className="w-5 h-5 text-white" />
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">

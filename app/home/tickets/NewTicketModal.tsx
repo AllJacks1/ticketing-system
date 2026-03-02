@@ -68,9 +68,6 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
 
     let attachmentId: string | null = null;
 
-    // ─────────────────────────────────────
-    // 1️⃣ Optional attachment handling
-    // ─────────────────────────────────────
     if (attachment) {
       try {
         const filePath = `tickets/${crypto.randomUUID()}-${attachment.name}`;
@@ -125,6 +122,7 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
           deadline,
           assigned_by: userId,
           file_id: attachmentId,
+          status: "Waiting",
         })
         .select("ticket_id")
         .single();
