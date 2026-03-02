@@ -43,7 +43,13 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [issueType, setIssueType] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("");
+
+  // Combine when submitting:
+  const deadline = deadlineDate
+    ? `${deadlineDate}T${deadlineTime || "00:00:00"}`
+    : "";
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -73,10 +79,9 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
         const filePath = `tickets/${crypto.randomUUID()}-${attachment.name}`;
 
         // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } =
-          await supabase.storage
-            .from("ticket_attachments")
-            .upload(filePath, attachment);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("ticket_attachments")
+          .upload(filePath, attachment);
 
         if (uploadError) throw uploadError;
 
@@ -166,7 +171,8 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       setIssueType("");
       setPriority("Medium");
       setAssignee("");
-      setDeadline("");
+      setDeadlineDate("");
+      setDeadlineDate("");
       setFile(null);
 
       // Optional: notify parent
@@ -338,12 +344,20 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
                 <Calendar className="w-3.5 h-3.5 text-gray-500" />
                 Deadline
               </Label>
-              <Input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full"
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={deadlineDate}
+                  onChange={(e) => setDeadlineDate(e.target.value)}
+                  className="w-full"
+                />
+                <Input
+                  type="time"
+                  value={deadlineTime}
+                  onChange={(e) => setDeadlineTime(e.target.value)}
+                  className="w-24 shrink-0"
+                />
+              </div>
             </div>
           </div>
 
@@ -364,7 +378,9 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
                 <p className="text-sm text-gray-600">
                   Drop file here or click to upload
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Max file size: 10MB</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Max file size: 10MB
+                </p>
               </div>
             ) : (
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
