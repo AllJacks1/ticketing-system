@@ -163,3 +163,8 @@ export interface Assignee {
   last_name: string;
   avatar?: string;
 }
+
+export interface Project {
+  project_id: string;
+  name: string;
+}

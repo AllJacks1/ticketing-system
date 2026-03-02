@@ -168,7 +168,12 @@ export default function TicketDetailModal({
 
       const { error } = await supabase
         .from("tickets")
-        .update({ status: pendingStatus })
+        .update({
+          status: pendingStatus,
+          updated_at: new Date().toLocaleString("en-PH", {
+            timeZone: "Asia/Manila",
+          }),
+        })
         .eq("ticket_id", ticket.id);
 
       if (error) {
@@ -209,7 +214,12 @@ export default function TicketDetailModal({
 
       const { error } = await supabase
         .from("tickets")
-        .update({ remarks: updatedComments })
+        .update({
+          remarks: updatedComments,
+          updated: new Date().toLocaleString("en-PH", {
+            timeZone: "Asia/Manila",
+          }),
+        })
         .eq("ticket_id", ticket.id);
 
       if (error) {
@@ -487,16 +497,16 @@ export default function TicketDetailModal({
                   key={item.label}
                   className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg"
                 >
-                  <div >
+                  <div>
                     {item.avatar ? (
-                      <div className="shrink-0 p-1.5" >
+                      <div className="shrink-0 p-1.5">
                         <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
                           {item.avatar}
                         </div>
                       </div>
                     ) : item.icon ? (
                       <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
-                      <item.icon className="w-6 h-6 text-gray-400" />
+                        <item.icon className="w-6 h-6 text-gray-400" />
                       </div>
                     ) : null}
                   </div>

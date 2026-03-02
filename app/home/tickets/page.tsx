@@ -134,35 +134,6 @@ export default function TicketsPage() {
     }
   };
 
-  // Helper to format dates
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60),
-    );
-
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours} hours ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays === 1) return "Yesterday";
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  const formatRelativeDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInDays = Math.floor(
-      (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    if (diffInDays === 0) return "Today";
-    if (diffInDays === 1) return "Tomorrow";
-    if (diffInDays > 1 && diffInDays < 7) return `${diffInDays} days`;
-    return date.toLocaleDateString();
-  };
-
   // Load tickets on mount
   useEffect(() => {
     fetchTasks();

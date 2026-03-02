@@ -28,7 +28,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { NewTaskModalProps } from "@/lib/types";
+import { NewTaskModalProps, Project } from "@/lib/types";
 import { Assignee } from "@/lib/types";
 import { createClient } from "@/supabase/client";
 import { toast } from "sonner";
@@ -37,13 +37,14 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
   const [fetchingAssignees, setFetchingAssignees] = useState(false);
   const [fetchingProjects, setFetchingProjects] = useState(false);
   const cachedAssigneesRef = useRef<Assignee[]>([]);
-  const cachedProjectsRef = useRef<string[]>([]);
+  const cachedProjectsRef = useRef<Project[]>([]);
+  const [creating, setCreating] = useState(false);
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [project, setProject] = useState("");
-  const [projects, setProjects] = useState<string[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -120,17 +121,24 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
 
     try {
       setFetchingProjects(true);
-      const { data, error } = await supabase.from("projects").select("name");
+      const { data, error } = await supabase
+        .from("projects")
+        .select("project_id, name");
 
       if (error) {
         toast.error(`Failed to fetch projects: ${error.message}`);
         return;
       }
 
-      const projectNames = data?.map((project) => project.name) || [];
+      const projectList =
+        data?.map((item: any) => ({
+          project_id: item.project_id,
+          name: item.name,
+        })) || [];
 
-      cachedProjectsRef.current = projectNames;
-      setProjects(projectNames);
+      cachedProjectsRef.current = projectList;
+      setProjects(projectList);
+      setProjects(projectList);
     } catch (err) {
       console.error(err);
       toast.error("An unexpected error occurred while fetching projects");
@@ -139,21 +147,111 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  async function createTask() {
+    const supabase = createClient();
+
+    const storedUser = localStorage.getItem("userProfile");
+    const userId = storedUser ? JSON.parse(storedUser).user_id : null;
+
+    if (!userId) {
+      toast.error("User not found. Cannot create task.");
+      return null;
+    }
+
+    try {
+      setCreating(true);
+
+      // 1️⃣ Create main task
+      const { data: task, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          priority,
+          author: userId,
+          due_date: dueDate || null,
+          status: "To do",
+          updated: new Date().toLocaleString("en-PH", {
+            timeZone: "Asia/Manila",
+          }),
+        })
+        .select()
+        .single();
+
+      if (taskError || !task) {
+        toast.error(taskError?.message || "Failed to create task");
+        return null;
+      }
+
+      const taskId = task.task_id;
+
+      // 2️⃣ Create related records in parallel
+      const relations = [
+        supabase.from("task_projects").insert({
+          task_id: taskId,
+          project_id: project,
+        }),
+
+        supabase.from("task_assignees").insert({
+          task_id: taskId,
+          user_id: assignee || null,
+        }),
+
+        supabase.from("task_companies").insert({
+          task_id: taskId,
+          company_id: 1,
+        }),
+
+        supabase.from("task_branches").insert({
+          task_id: taskId,
+          branch_id: 1,
+        }),
+
+        supabase.from("task_departments").insert({
+          task_id: taskId,
+          department_id: 1,
+        }),
+      ];
+
+      const results = await Promise.all(relations);
+
+      const relationError = results.find((r) => r.error);
+
+      if (relationError?.error) {
+        toast.error("Task created but relations failed.");
+        console.error(relationError.error);
+        return task;
+      }
+
+      toast.success("Task created successfully 🎉");
+
+      return task;
+    } catch (err) {
+      console.error(err);
+      toast.error("Unexpected error while creating task");
+      return null;
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit?.({
-      title,
-      description,
-      projects,
-      priority,
-      assignee,
-      dueDate,
-    });
+
+    if (!title.trim() || !project) return;
+
+    const newTask = await createTask();
+
+    if (!newTask) return;
+
+    onSubmit?.(newTask); // optional callback to update UI
+
     setOpen(false);
+
     // Reset form
     setTitle("");
     setDescription("");
-    setProjects([]);
+    setProject("");
     setPriority("Medium");
     setAssignee("");
     setDueDate("");
@@ -224,13 +322,20 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
                     Loading...
                   </span>
                 ) : (
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder="Select project">
+                    {(() => {
+                      const selected = projects.find(
+                        (p) => String(p.project_id) === project,
+                      );
+                      return selected ? selected.name : null;
+                    })()}
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>
                 {projects.map((proj) => (
-                  <SelectItem key={proj} value={proj}>
-                    {proj}
+                  <SelectItem key={proj.project_id} value={proj.project_id}>
+                    {proj.name}
                   </SelectItem>
                 ))}
               </SelectContent>

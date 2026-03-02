@@ -219,10 +219,7 @@ export default function TasksPage() {
           ? {
               ...task,
               status: newStatus as Task["status"],
-              progress:
-                newStatus === "Completed"
-                  ? 100
-                  : newStatus === "To Do"
+              progress: newStatus === "Completed" ? 100 : newStatus === "To Do",
             }
           : task,
       ),
@@ -239,12 +236,7 @@ export default function TasksPage() {
             Manage development tasks and track progress
           </p>
         </div>
-        <NewTaskModal
-          onSubmit={(task) => {
-            console.log("New task:", task);
-            // Add to your tasks list
-          }}
-        />
+        <NewTaskModal onSubmit={() => {}} />
       </div>
 
       {/* Stats */}

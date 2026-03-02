@@ -183,6 +183,9 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
           assigned_by: userId,
           file_id: attachmentId,
           status: "Waiting",
+          updated_at: new Date().toLocaleString("en-PH", {
+            timeZone: "Asia/Manila",
+          }),
         })
         .select("ticket_id")
         .single();
