@@ -40,7 +40,7 @@ export interface NewTaskModalProps {
   onSubmit?: (task: {
     title: string;
     description: string;
-    project: string;
+    projects: string[];
     priority: string;
     assignee: string;
     dueDate: string;

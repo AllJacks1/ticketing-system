@@ -35,27 +35,39 @@ import { toast } from "sonner";
 
 export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
   const [fetchingAssignees, setFetchingAssignees] = useState(false);
+  const [fetchingProjects, setFetchingProjects] = useState(false);
   const cachedAssigneesRef = useRef<Assignee[]>([]);
+  const cachedProjectsRef = useRef<string[]>([]);
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [project, setProject] = useState("");
+  const [projects, setProjects] = useState<string[]>([]);
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   useEffect(() => {
-    if (open) {
-      // Use cached data if available
+    if (!open) return;
+
+    const loadData = async () => {
+      // Assignees
       if (cachedAssigneesRef.current.length > 0) {
         setAssignees(cachedAssigneesRef.current);
-        return;
+      } else {
+        await fetchAssignees();
       }
 
-      // Otherwise fetch from API
-      fetchAssignees();
-    }
+      // Projects
+      if (cachedProjectsRef.current.length > 0) {
+        setProjects(cachedProjectsRef.current);
+      } else {
+        await fetchProjects();
+      }
+    };
+
+    loadData();
   }, [open]);
 
   async function fetchAssignees() {
@@ -103,12 +115,36 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
     }
   }
 
+  async function fetchProjects() {
+    const supabase = createClient();
+
+    try {
+      setFetchingProjects(true);
+      const { data, error } = await supabase.from("projects").select("name");
+
+      if (error) {
+        toast.error(`Failed to fetch projects: ${error.message}`);
+        return;
+      }
+
+      const projectNames = data?.map((project) => project.name) || [];
+
+      cachedProjectsRef.current = projectNames;
+      setProjects(projectNames);
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred while fetching projects");
+    } finally {
+      setFetchingProjects(false);
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit?.({
       title,
       description,
-      project,
+      projects,
       priority,
       assignee,
       dueDate,
@@ -117,18 +153,11 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
     // Reset form
     setTitle("");
     setDescription("");
-    setProject("");
+    setProjects([]);
     setPriority("Medium");
     setAssignee("");
     setDueDate("");
   };
-
-  const projects = [
-    "IssueLane Core",
-    "IssueLane Docs",
-    "IssueLane Infrastructure",
-    "IssueLane Mobile",
-  ];
 
   const priorities = [
     { value: "Low", label: "Low", color: "text-gray-600" },
@@ -189,7 +218,14 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
             </Label>
             <Select value={project} onValueChange={setProject} required>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select project" />
+                {fetchingProjects && projects.length === 0 ? (
+                  <span className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Select project" />
+                )}
               </SelectTrigger>
               <SelectContent>
                 {projects.map((proj) => (
