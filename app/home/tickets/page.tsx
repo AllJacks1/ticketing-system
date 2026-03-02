@@ -63,6 +63,7 @@ export default function TicketsPage() {
         deadline,
         created_at,
         updated_at,
+        remarks,
         files(type, url),
         assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
         assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
@@ -84,7 +85,7 @@ export default function TicketsPage() {
         updatedAt: ticket.updated_at,
         dueDate: ticket.deadline || undefined,
         tags: [],
-        comments: 0,
+        comments: ticket.remarks ? (Array.isArray(ticket.remarks) ? ticket.remarks : [ticket.remarks]) : [],
 
         // ✅ Correct mapping of attachments
         attachments: ticket.files

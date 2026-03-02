@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,9 +31,13 @@ import {
   ExternalLink,
   Image as ImageIcon,
   FileText,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import { TicketDetailModalProps } from "@/lib/types";
+import { createClient } from "@/supabase/client";
 import { formatManilaTime } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Attachment {
   url: string;
@@ -47,6 +51,28 @@ export default function TicketDetailModal({
 }: TicketDetailModalProps) {
   const [comment, setComment] = useState("");
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+
+  // Track pending status change
+  const [pendingStatus, setPendingStatus] = useState(ticket.status);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-promotion from Waiting to Open
+  const [showAutoPromote, setShowAutoPromote] = useState(false);
+
+  // Reset and check for auto-promotion when dialog opens
+  useEffect(() => {
+    setPendingStatus(ticket.status);
+    setHasChanges(false);
+    setShowAutoPromote(false);
+
+    // If ticket is Waiting, prompt for auto-promotion to Open
+    if (ticket.status === "Waiting") {
+      setShowAutoPromote(true);
+      setPendingStatus("Open");
+      setHasChanges(true);
+    }
+  }, [ticket.status, ticket.id]);
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -69,7 +95,7 @@ export default function TicketDetailModal({
     return colors[status] || "bg-gray-100 text-gray-700";
   };
 
-  const statuses = ["Open", "In Progress", "Waiting", "Resolved", "Closed"];
+  const statuses = ["Waiting", "Open", "Resolved", "Closed"];
 
   const details = [
     {
@@ -98,24 +124,122 @@ export default function TicketDetailModal({
   ];
 
   const hasAttachments = ticket.attachments && ticket.attachments.length > 0;
+  const hasComments = ticket.comments && ticket.comments.length > 0;
 
   const isImage = (type: string) => {
-    return type.startsWith('image/');
+    return type.startsWith("image/");
   };
 
   const getFileName = (url: string) => {
     try {
       const urlObj = new URL(url);
       const pathname = urlObj.pathname;
-      return pathname.split('/').pop() || 'Attachment';
+      return pathname.split("/").pop() || "Attachment";
     } catch {
-      return 'Attachment';
+      return "Attachment";
     }
   };
 
   const getFileIcon = (type: string) => {
     if (isImage(type)) return ImageIcon;
     return FileText;
+  };
+
+  const handleStatusChange = (value: string) => {
+    setPendingStatus(value);
+    setHasChanges(value !== ticket.status);
+    setShowAutoPromote(false);
+  };
+
+  const handleApplyChanges = async () => {
+    if (!hasChanges) return;
+
+    setIsSaving(true);
+    const toastId = toast.loading("Updating ticket status...");
+
+    try {
+      const supabase = createClient();
+
+      if (!ticket.id) {
+        throw new Error("Invalid ticket ID");
+      }
+
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: pendingStatus })
+        .eq("ticket_id", ticket.id);
+
+      if (error) {
+        throw error;
+      }
+
+      onStatusChange?.(ticket.id, pendingStatus);
+
+      toast.success("Status updated successfully", { id: toastId });
+      setHasChanges(false);
+      setShowAutoPromote(false);
+    } catch (error: any) {
+      console.error("Update error:", error);
+      toast.error(error.message || "Failed to update status", { id: toastId });
+      setPendingStatus(ticket.status);
+      setShowAutoPromote(ticket.status === "Waiting");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!comment.trim()) return;
+
+    setIsSaving(true);
+    const toastId = toast.loading("Posting comment...");
+
+    try {
+      const supabase = createClient();
+
+      if (!ticket.id) {
+        throw new Error("Invalid ticket ID");
+      }
+
+      const updatedComments = ticket.comments
+        ? [...ticket.comments, comment.trim()]
+        : [comment.trim()];
+
+      const { error } = await supabase
+        .from("tickets")
+        .update({ remarks: updatedComments })
+        .eq("ticket_id", ticket.id);
+
+      if (error) {
+        throw error;
+      }
+
+      ticket.comments = updatedComments;
+      setComment("");
+
+      toast.success("Comment posted", { id: toastId });
+    } catch (error: any) {
+      console.error("Comment error:", error);
+      toast.error(error.message || "Failed to post comment", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setPendingStatus(ticket.status);
+    setHasChanges(false);
+    setShowAutoPromote(false);
+  };
+
+  const handleConfirmAutoPromote = () => {
+    handleApplyChanges();
+  };
+
+  const handleRejectAutoPromote = () => {
+    setPendingStatus("Waiting");
+    setHasChanges(false);
+    setShowAutoPromote(false);
   };
 
   return (
@@ -142,32 +266,131 @@ export default function TicketDetailModal({
           {/* Scrollable Content */}
           <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-80px)]">
             {/* Status & Priority */}
-            <div className="flex items-center gap-2">
-              <Select
-                value={ticket.status}
-                onValueChange={(value) => onStatusChange?.(ticket.id, value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(s)}`}
-                      >
-                        {s}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Select
+                  value={pendingStatus}
+                  onValueChange={handleStatusChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses
+                      .filter((s) => {
+                        const currentIndex = statuses.indexOf(ticket.status);
+                        const optionIndex = statuses.indexOf(s);
+                        return optionIndex >= currentIndex;
+                      })
+                      .map((s) => (
+                        <SelectItem key={s} value={s}>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(s)}`}
+                          >
+                            {s}
+                          </span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Badge
+                  variant="outline"
+                  className={`w-24 justify-center shrink-0 ${getPriorityColor(ticket.priority)}`}
+                >
+                  {ticket.priority}
+                </Badge>
+              </div>
+
+              {/* Auto-promote Banner */}
+              {showAutoPromote && (
+                <div className="flex flex-col gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 text-sm text-blue-900">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <span>
+                      This ticket is <strong>Waiting</strong>. Start working on it?
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-blue-700">
+                      <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
+                        Waiting
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge
-                variant="outline"
-                className={`w-24 justify-center shrink-0 ${getPriorityColor(ticket.priority)}`}
-              >
-                {ticket.priority}
-              </Badge>
+                      <ArrowRight className="w-3 h-3" />
+                      <span className="px-2 py-1 bg-blue-100 rounded text-blue-700 font-medium">
+                        Open
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRejectAutoPromote}
+                        className="h-7 text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+                      >
+                        Keep Waiting
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleConfirmAutoPromote}
+                        disabled={isSaving}
+                        className="h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {isSaving ? (
+                          <span className="flex items-center gap-1">
+                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Starting...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Start Ticket
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Apply Changes Banner */}
+              {hasChanges && !showAutoPromote && (
+                <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 text-sm text-indigo-900">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                    <span>
+                      Change status to <strong>{pendingStatus}</strong>?
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDiscardChanges}
+                      className="h-7 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleApplyChanges}
+                      disabled={isSaving}
+                      className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center gap-1">
+                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          Apply
+                        </span>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Description */}
@@ -191,7 +414,9 @@ export default function TicketDetailModal({
                 }`}
               >
                 <Clock className="w-4 h-4 shrink-0" />
-                <span className="text-sm font-medium">Due: {formatManilaTime(ticket.dueDate)}</span>
+                <span className="text-sm font-medium">
+                  Due: {formatManilaTime(ticket.dueDate)}
+                </span>
               </div>
             )}
 
@@ -207,13 +432,13 @@ export default function TicketDetailModal({
                   {ticket.attachments.map((file: Attachment, index: number) => {
                     const FileIcon = getFileIcon(file.type);
                     const isImageFile = isImage(file.type);
-                    
+
                     return (
                       <button
                         key={index}
                         onClick={() => isImageFile && setPreviewAttachment(file)}
                         className={`flex items-center gap-3 p-3 w-full bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group text-left ${
-                          isImageFile ? 'cursor-pointer' : 'cursor-default'
+                          isImageFile ? "cursor-pointer" : "cursor-default"
                         }`}
                       >
                         <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow transition-shadow shrink-0">
@@ -224,7 +449,7 @@ export default function TicketDetailModal({
                             {getFileName(file.url)}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {isImageFile ? 'Click to preview' : file.type}
+                            {isImageFile ? "Click to preview" : file.type}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -268,27 +493,64 @@ export default function TicketDetailModal({
               ))}
             </div>
 
-            {/* Activity */}
-            <div className="space-y-2">
+            {/* Comments Section */}
+            <div className="space-y-3">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
-                Activity
+                Comments {hasComments && `(${ticket.comments.length})`}
               </h4>
-              <Textarea
-                placeholder="Add a comment..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-                className="resize-none"
-              />
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                  disabled={!comment.trim()}
-                >
-                  Post Comment
-                </Button>
+
+              {/* Comments List */}
+              {hasComments && (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {ticket.comments.map((commentText: string, index: number) => (
+                    <div
+                      key={index}
+                      className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+                    >
+                      <p className="text-sm text-gray-700 break-words">
+                        {commentText}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        #{index + 1}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!hasComments && (
+                <p className="text-sm text-gray-400 italic">
+                  No comments yet. Add one below.
+                </p>
+              )}
+
+              {/* Add Comment */}
+              <div className="space-y-2 pt-2 border-t">
+                <Textarea
+                  placeholder="Add a comment..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={handlePostComment}
+                    disabled={!comment.trim() || isSaving}
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    {isSaving ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Posting...
+                      </span>
+                    ) : (
+                      "Post Comment"
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -297,7 +559,10 @@ export default function TicketDetailModal({
 
       {/* Image Preview Dialog */}
       {previewAttachment && (
-        <Dialog open={!!previewAttachment} onOpenChange={() => setPreviewAttachment(null)}>
+        <Dialog
+          open={!!previewAttachment}
+          onOpenChange={() => setPreviewAttachment(null)}
+        >
           <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-gray-800">
             <DialogHeader className="p-4 border-b border-gray-800 flex flex-row items-center justify-between">
               <DialogTitle className="text-white text-sm font-medium flex items-center gap-2">
@@ -311,7 +576,7 @@ export default function TicketDetailModal({
                   variant="ghost"
                   size="sm"
                   className="text-gray-400 hover:text-white hover:bg-white/10"
-                  onClick={() => window.open(previewAttachment.url, '_blank')}
+                  onClick={() => window.open(previewAttachment.url, "_blank")}
                 >
                   <Download className="w-4 h-4 mr-1" />
                   Download

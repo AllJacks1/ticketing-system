@@ -51,7 +51,7 @@ export interface Ticket {
   id: string;
   title: string;
   description: string;
-  status: "Open" | "In Progress" | "Waiting" | "Resolved" | "Closed";
+  status: string;
   priority: "Low" | "Medium" | "High" | "Urgent";
 
   assignee: {
@@ -69,7 +69,7 @@ export interface Ticket {
   dueDate?: string;
 
   tags: string[];
-  comments: number;
+  comments: string[];
 
   // Each attachment has type and URL
   attachments: {
