@@ -279,14 +279,6 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
     }
   };
 
-  const getFullName = (assignee: Assignee) =>
-    `${assignee.first_name} ${assignee.last_name}`;
-
-  const selectedAssigneeName = useMemo(() => {
-    const selected = assignees.find((p) => p.user_id === assignee);
-    return selected ? getFullName(selected) : null;
-  }, [assignee, assignees]);
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -395,7 +387,9 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
                         const selected = assignees.find(
                           (p) => String(p.user_id) === assignee,
                         );
-                        return selected ? getFullName(selected) : null;
+                        return selected
+                          ? `${selected.first_name} ${selected.last_name}`
+                          : null;
                       })()}
                     </SelectValue>
                   )}
@@ -407,7 +401,7 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
                         <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-medium">
                           {person.avatar}
                         </div>
-                        {getFullName(person)}
+                        {`${person.first_name} ${person.last_name}`}
                       </div>
                     </SelectItem>
                   ))}
