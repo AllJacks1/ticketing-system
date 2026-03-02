@@ -22,7 +22,7 @@ export default function ProfileModal({ user }: ProfileModalProps) {
   const profileItems = [
     { icon: Mail, label: "Email", value: userData.email },
     { icon: Briefcase, label: "Role", value: userData.role },
-    { icon: Building2, label: "Department", value: userData.department },
+    { icon: Building2, label: "Designation", value: userData.department },
   ];
 
   return (

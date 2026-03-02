@@ -196,17 +196,17 @@ export default function TasksPage() {
   const stats = [
     { label: "Total Tasks", value: tasks.length, icon: Layout },
     {
-      label: "To Do",
+      label: "Tasks To Do",
       value: tasks.filter((t) => t.status === "To Do").length,
       icon: CheckSquare,
     },
     {
-      label: "In Progress",
+      label: "Tasks In Progress",
       value: tasks.filter((t) => t.status === "In Progress").length,
       icon: ArrowUpDown,
     },
     {
-      label: "Completed",
+      label: "Completed Tasks",
       value: tasks.filter((t) => t.status === "Completed").length,
       icon: CheckCircle2,
     },
