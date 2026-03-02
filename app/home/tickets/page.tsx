@@ -219,17 +219,12 @@ export default function TicketsPage() {
   const stats = [
     { label: "Total Tickets", value: tickets.length, icon: AlertCircle },
     {
-      label: "Open",
+      label: "Open Tickets",
       value: tickets.filter((t) => t.status === "Open").length,
       icon: Clock,
     },
     {
-      label: "In Progress",
-      value: tickets.filter((t) => t.status === "In Progress").length,
-      icon: ArrowUpDown,
-    },
-    {
-      label: "Resolved",
+      label: "Resolved Tickets",
       value: tickets.filter(
         (t) => t.status === "Resolved" || t.status === "Closed",
       ).length,
@@ -269,7 +264,7 @@ export default function TicketsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map((stat, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-4 flex items-center gap-4">

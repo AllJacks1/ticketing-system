@@ -67,7 +67,7 @@ export default function DashboardPage() {
       icon: Ticket,
     },
     {
-      label: "In Progress",
+      label: "Tasks In Progress",
       value: 8,
       change: "+3",
       trend: "up",
@@ -81,14 +81,6 @@ export default function DashboardPage() {
       trend: "up",
       color: "green",
       icon: CheckSquare,
-    },
-    {
-      label: "Avg Response",
-      value: "2.4h",
-      change: "-15min",
-      trend: "down",
-      color: "purple",
-      icon: LayoutDashboard,
     },
   ];
 
@@ -196,7 +188,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {stats.map((stat, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
