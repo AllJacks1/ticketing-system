@@ -33,6 +33,7 @@ import {
   FileText,
 } from "lucide-react";
 import { TicketDetailModalProps } from "@/lib/types";
+import { formatManilaTime } from "@/lib/utils";
 
 interface Attachment {
   url: string;
@@ -190,7 +191,7 @@ export default function TicketDetailModal({
                 }`}
               >
                 <Clock className="w-4 h-4 shrink-0" />
-                <span className="text-sm font-medium">Due {ticket.dueDate}</span>
+                <span className="text-sm font-medium">Due: {formatManilaTime(ticket.dueDate)}</span>
               </div>
             )}
 

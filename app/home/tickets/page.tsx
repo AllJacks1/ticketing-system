@@ -32,7 +32,7 @@ import TicketDetailModal from "./TicketDetailModal";
 import { Ticket } from "@/lib/types";
 import { createClient } from "@/supabase/client";
 import { toast } from "sonner";
-import { getInitials } from "@/lib/utils";
+import { formatManilaTime, getInitials } from "@/lib/utils";
 
 export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -190,9 +190,9 @@ export default function TicketsPage() {
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
-      ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.description.toLowerCase().includes(searchQuery.toLowerCase());
+      ticket.title.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.id.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.description.toString().toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || ticket.status === statusFilter;
     const matchesPriority =
@@ -386,7 +386,7 @@ export default function TicketsPage() {
                             <span className="text-gray-300">•</span>
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {ticket.createdAt}
+                              {formatManilaTime(ticket.createdAt)}
                             </span>
                             {ticket.dueDate && (
                               <>
@@ -400,7 +400,7 @@ export default function TicketsPage() {
                                   }`}
                                 >
                                   <Clock className="w-3 h-3" />
-                                  Due {ticket.dueDate}
+                                  Due: {formatManilaTime(ticket.dueDate)}
                                 </span>
                               </>
                             )}
