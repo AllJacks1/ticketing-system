@@ -83,17 +83,6 @@ export interface TicketDetailModalProps {
   ticket: Ticket;
   onStatusChange?: (ticketId: string, newStatus: string) => void;
 }
-
-export interface NewTicketModalProps {
-  onSubmit?: (ticket: {
-    title: string;
-    description: string;
-    issueType: string;
-    priority: string;
-    assignee: string;
-  }) => void;
-}
-
 export interface Task {
   id: string;
   title: string;
@@ -156,4 +145,20 @@ export interface TaskPayload {
   assignee: string;
   deadline: string;
   attachments?: File[];
+}
+export interface NewTicketModalProps {
+  onSubmit?: (ticket: {
+    title: string;
+    description: string;
+    issueType: string;
+    priority: string;
+    assignee: string;
+    deadline: string;
+  }) => void;
+}
+
+export interface Assignee {
+  user_id: number;
+  first_name: string;
+  last_name: string;
 }

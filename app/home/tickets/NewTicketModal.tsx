@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,24 +20,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertCircle, User, Paperclip, Calendar, X } from "lucide-react";
-import { TaskPayload } from "@/lib/types";
+import {
+  Plus,
+  AlertCircle,
+  User,
+  Paperclip,
+  Calendar,
+  X,
+  Loader2,
+} from "lucide-react";
+import { NewTicketModalProps, TaskPayload } from "@/lib/types";
 import { toast } from "sonner";
 import { createClient } from "@/supabase/client";
 
-interface NewTicketModalProps {
-  onSubmit?: (ticket: {
-    title: string;
-    description: string;
-    issueType: string;
-    priority: string;
-    assignee: string;
-    deadline: string;
-  }) => void;
+interface Assignee {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  avatar?: string;
 }
 
 export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [open, setOpen] = useState(false);
+  const [fetchingAssignees, setFetchingAssignees] = useState(false);
+
+  // Use ref for caching - persists across renders without triggering re-renders
+  const cachedAssigneesRef = useRef<Assignee[]>([]);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [issueType, setIssueType] = useState("");
@@ -46,14 +56,73 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("");
 
-  // Combine when submitting:
   const deadline = deadlineDate
     ? `${deadlineDate}T${deadlineTime || "00:00:00"}`
     : "";
+
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function createTask({
+  // Fetch assignees when dialog opens - use cache if available
+  useEffect(() => {
+    if (open) {
+      // Use cached data if available
+      if (cachedAssigneesRef.current.length > 0) {
+        setAssignees(cachedAssigneesRef.current);
+        return;
+      }
+
+      // Otherwise fetch from API
+      fetchAssignees();
+    }
+  }, [open]);
+
+  async function fetchAssignees() {
+    const supabase = createClient();
+
+    try {
+      setFetchingAssignees(true);
+      const { data, error } = await supabase
+        .from("user_assignments")
+        .select(
+          `
+          role_id,
+          users:user_id (
+            user_id,
+            first_name,
+            last_name
+          )
+        `,
+        )
+        .in("role_id", [1, 2]);
+
+      if (error) {
+        toast.error(`Failed to fetch assignees: ${error.message}`);
+        return;
+      }
+
+      // Transform data to flat array with avatar initials
+      const transformedAssignees =
+        data?.map((item: any) => ({
+          user_id: item.users.user_id,
+          first_name: item.users.first_name,
+          last_name: item.users.last_name,
+          avatar:
+            `${item.users.first_name[0]}${item.users.last_name[0]}`.toUpperCase(),
+        })) || [];
+
+      // Cache in ref and state
+      cachedAssigneesRef.current = transformedAssignees;
+      setAssignees(transformedAssignees);
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred while fetching assignees");
+    } finally {
+      setFetchingAssignees(false);
+    }
+  }
+
+  async function createTicket({
     title,
     description,
     issueType,
@@ -78,19 +147,16 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       try {
         const filePath = `tickets/${crypto.randomUUID()}-${attachment.name}`;
 
-        // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("ticket_attachments")
           .upload(filePath, attachment);
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: publicData } = supabase.storage
           .from("ticket_attachments")
           .getPublicUrl(uploadData.path);
 
-        // Insert into files table
         const { data: fileData, error: fileError } = await supabase
           .from("files")
           .insert({
@@ -101,8 +167,6 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
           .single();
 
         if (fileError) throw fileError;
-        console.log("File uploaded and recorded with ID:", fileData.file_id);
-
         attachmentId = fileData.file_id;
       } catch (err) {
         console.error("Attachment upload failed:", err);
@@ -110,9 +174,6 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       }
     }
 
-    // ─────────────────────────────────────
-    // 2️⃣ Create ticket
-    // ─────────────────────────────────────
     try {
       const toastId = toast.loading("Creating ticket...");
 
@@ -123,7 +184,7 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
           description,
           issue_type: issueType,
           priority,
-          assigned_to: 1,
+          assigned_to: assignee ? parseInt(assignee) : null,
           deadline,
           assigned_by: userId,
           file_id: attachmentId,
@@ -161,7 +222,7 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       attachment: file,
     };
 
-    const result = await createTask(ticketData);
+    const result = await createTicket(ticketData);
 
     if (result) {
       setOpen(false);
@@ -172,22 +233,12 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       setPriority("Medium");
       setAssignee("");
       setDeadlineDate("");
-      setDeadlineDate("");
+      setDeadlineTime("");
       setFile(null);
 
-      // Optional: notify parent
       onSubmit?.(ticketData);
     }
   };
-
-  const assignees = [
-    { name: "Sarah Chen", avatar: "SC" },
-    { name: "John Doe", avatar: "JD" },
-    { name: "Mike Ross", avatar: "MR" },
-    { name: "Emma Wilson", avatar: "EW" },
-    { name: "Alex Kim", avatar: "AK" },
-    { name: "James Lee", avatar: "JL" },
-  ];
 
   const priorities = [
     { value: "Low", label: "Low", color: "text-gray-600" },
@@ -227,6 +278,14 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
       inputRef.current.value = "";
     }
   };
+
+  const getFullName = (assignee: Assignee) =>
+    `${assignee.first_name} ${assignee.last_name}`;
+
+  const selectedAssigneeName = useMemo(() => {
+    const selected = assignees.find((p) => p.user_id === assignee);
+    return selected ? getFullName(selected) : null;
+  }, [assignee, assignees]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -319,18 +378,36 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
                 <User className="w-3.5 h-3.5 text-gray-500" />
                 Assignee
               </Label>
-              <Select value={assignee} onValueChange={setAssignee}>
+              <Select
+                value={assignee}
+                onValueChange={setAssignee}
+                disabled={fetchingAssignees && assignees.length === 0}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Unassigned" />
+                  {fetchingAssignees && assignees.length === 0 ? (
+                    <span className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Select assignee">
+                      {(() => {
+                        const selected = assignees.find(
+                          (p) => String(p.user_id) === assignee,
+                        );
+                        return selected ? getFullName(selected) : null;
+                      })()}
+                    </SelectValue>
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {assignees.map((person) => (
-                    <SelectItem key={person.avatar} value={person.name}>
+                    <SelectItem key={person.user_id} value={person.user_id}>
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-medium">
                           {person.avatar}
                         </div>
-                        {person.name}
+                        {getFullName(person)}
                       </div>
                     </SelectItem>
                   ))}
