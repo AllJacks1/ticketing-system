@@ -50,7 +50,9 @@ export default function TicketDetailModal({
   onStatusChange,
 }: TicketDetailModalProps) {
   const [comment, setComment] = useState("");
-  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(
+    null,
+  );
 
   // Track pending status change
   const [pendingStatus, setPendingStatus] = useState(ticket.status);
@@ -99,7 +101,7 @@ export default function TicketDetailModal({
 
   const details = [
     {
-      icon: User,
+      avatar: ticket.assignee?.avatar,
       label: "Assignee",
       value: (
         <span className="text-sm font-medium text-gray-900">
@@ -108,7 +110,7 @@ export default function TicketDetailModal({
       ),
     },
     {
-      icon: User,
+      avatar: ticket.reporter?.avatar,
       label: "Reporter",
       value: (
         <span className="text-sm font-medium text-gray-900">
@@ -119,7 +121,7 @@ export default function TicketDetailModal({
     {
       icon: Calendar,
       label: "Created",
-      value: ticket.createdAt,
+      value: formatManilaTime(ticket.createdAt),
     },
   ];
 
@@ -307,7 +309,8 @@ export default function TicketDetailModal({
                   <div className="flex items-center gap-2 text-sm text-blue-900">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                     <span>
-                      This ticket is <strong>Waiting</strong>. Start working on it?
+                      This ticket is <strong>Waiting</strong>. Start working on
+                      it?
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -436,7 +439,9 @@ export default function TicketDetailModal({
                     return (
                       <button
                         key={index}
-                        onClick={() => isImageFile && setPreviewAttachment(file)}
+                        onClick={() =>
+                          isImageFile && setPreviewAttachment(file)
+                        }
                         className={`flex items-center gap-3 p-3 w-full bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group text-left ${
                           isImageFile ? "cursor-pointer" : "cursor-default"
                         }`}
@@ -482,8 +487,18 @@ export default function TicketDetailModal({
                   key={item.label}
                   className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg"
                 >
-                  <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
-                    <item.icon className="w-3.5 h-3.5 text-gray-500" />
+                  <div >
+                    {item.avatar ? (
+                      <div className="shrink-0 p-1.5" >
+                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {item.avatar}
+                        </div>
+                      </div>
+                    ) : item.icon ? (
+                      <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
+                      <item.icon className="w-6 h-6 text-gray-400" />
+                      </div>
+                    ) : null}
                   </div>
                   <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
                   <div className="text-sm font-medium text-gray-900 w-full truncate">
@@ -511,9 +526,7 @@ export default function TicketDetailModal({
                       <p className="text-sm text-gray-700 break-words">
                         {commentText}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        #{index + 1}
-                      </p>
+                      <p className="text-xs text-gray-400 mt-1">#{index + 1}</p>
                     </div>
                   ))}
                 </div>
