@@ -158,7 +158,8 @@ export interface NewTicketModalProps {
 }
 
 export interface Assignee {
-  user_id: number;
+  user_id: string;
   first_name: string;
   last_name: string;
+  avatar?: string;
 }

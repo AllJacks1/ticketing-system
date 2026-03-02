@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,10 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Calendar, User, Layout, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  User,
+  Layout,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { NewTaskModalProps } from "@/lib/types";
+import { Assignee } from "@/lib/types";
+import { createClient } from "@/supabase/client";
+import { toast } from "sonner";
 
 export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
+  const [fetchingAssignees, setFetchingAssignees] = useState(false);
+  const cachedAssigneesRef = useRef<Assignee[]>([]);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -31,6 +44,64 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      // Use cached data if available
+      if (cachedAssigneesRef.current.length > 0) {
+        setAssignees(cachedAssigneesRef.current);
+        return;
+      }
+
+      // Otherwise fetch from API
+      fetchAssignees();
+    }
+  }, [open]);
+
+  async function fetchAssignees() {
+    const supabase = createClient();
+
+    try {
+      setFetchingAssignees(true);
+      const { data, error } = await supabase
+        .from("user_assignments")
+        .select(
+          `
+          role_id,
+          users:user_id (
+            user_id,
+            first_name,
+            last_name
+          )
+        `,
+        )
+        .in("role_id", [1, 2]);
+
+      if (error) {
+        toast.error(`Failed to fetch assignees: ${error.message}`);
+        return;
+      }
+
+      // Transform data to flat array with avatar initials
+      const transformedAssignees =
+        data?.map((item: any) => ({
+          user_id: item.users.user_id,
+          first_name: item.users.first_name,
+          last_name: item.users.last_name,
+          avatar:
+            `${item.users.first_name[0]}${item.users.last_name[0]}`.toUpperCase(),
+        })) || [];
+
+      // Cache in ref and state
+      cachedAssigneesRef.current = transformedAssignees;
+      setAssignees(transformedAssignees);
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred while fetching assignees");
+    } finally {
+      setFetchingAssignees(false);
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,15 +128,6 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
     "IssueLane Docs",
     "IssueLane Infrastructure",
     "IssueLane Mobile",
-  ];
-
-  const assignees = [
-    { name: "Sarah Chen", avatar: "SC" },
-    { name: "John Doe", avatar: "JD" },
-    { name: "Mike Ross", avatar: "MR" },
-    { name: "Emma Wilson", avatar: "EW" },
-    { name: "Alex Kim", avatar: "AK" },
-    { name: "James Lee", avatar: "JL" },
   ];
 
   const priorities = [
@@ -161,22 +223,42 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="assignee" className="flex items-center gap-1.5">
+              <Label className="flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-gray-500" />
                 Assignee
               </Label>
-              <Select value={assignee} onValueChange={setAssignee}>
+              <Select
+                value={assignee}
+                onValueChange={setAssignee}
+                disabled={fetchingAssignees && assignees.length === 0}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Unassigned" />
+                  {fetchingAssignees && assignees.length === 0 ? (
+                    <span className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Select assignee">
+                      {(() => {
+                        const selected = assignees.find(
+                          (p) => String(p.user_id) === assignee,
+                        );
+                        return selected
+                          ? `${selected.first_name} ${selected.last_name}`
+                          : null;
+                      })()}
+                    </SelectValue>
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {assignees.map((person) => (
-                    <SelectItem key={person.avatar} value={person.name}>
+                    <SelectItem key={person.user_id} value={person.user_id}>
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-medium">
                           {person.avatar}
                         </div>
-                        {person.name}
+                        {`${person.first_name} ${person.last_name}`}
                       </div>
                     </SelectItem>
                   ))}
@@ -201,7 +283,11 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
             <Button

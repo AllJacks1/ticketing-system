@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,13 +32,7 @@ import {
 import { NewTicketModalProps, TaskPayload } from "@/lib/types";
 import { toast } from "sonner";
 import { createClient } from "@/supabase/client";
-
-interface Assignee {
-  user_id: string;
-  first_name: string;
-  last_name: string;
-  avatar?: string;
-}
+import { Assignee } from "@/lib/types";
 
 export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
   const [open, setOpen] = useState(false);
