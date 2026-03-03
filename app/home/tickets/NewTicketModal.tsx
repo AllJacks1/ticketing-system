@@ -203,8 +203,17 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
         const { data: notification, error: notifError } = await supabase
           .from("notifications")
           .insert({
-            title: "A new ticket has been assigned",
-            description: `Ticket ${ticket.ticket_id} has been assigned to you.`,
+            title: `Ticket #${ticket.ticket_id} Assigned to You`,
+            description: `
+The ticket "${title || "Untitled"}" has been assigned to you.
+
+• Ticket ID: ${ticket.ticket_id}
+• Priority: ${priority || "Not set"}
+• Issue Type: ${issueType || "Not specified"}
+• Assigned At: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+${deadline ? `• Deadline: ${new Date(deadline).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}` : ""}
+${description ? `\nDescription: ${description.substring(0, 100)}${description.length > 100 ? "..." : ""}` : ""}
+    `.trim(),
           })
           .select("notification_id")
           .single();

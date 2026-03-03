@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,194 +11,166 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, Trash2 } from "lucide-react";
-import { Notification } from "@/lib/types";
+import { createClient } from "@/supabase/client";
+import { toast } from "sonner";
 
-// Example extended notifications for the modal
-const allNotifications: Notification[] = [
-  {
-    id: 1,
-    title: "New ticket assigned",
-    message: "TASK-006 has been assigned to you by Sarah Chen",
-    time: "2 min ago",
-    unread: true,
-    type: "ticket",
-  },
-  {
-    id: 2,
-    title: "Task completed",
-    message: "Mike Ross resolved #2041 - API timeout fix",
-    time: "15 min ago",
-    unread: true,
-    type: "task",
-  },
-  {
-    id: 3,
-    title: "System update scheduled",
-    message: "Scheduled maintenance tonight at 2 AM EST",
-    time: "30 min ago",
-    unread: false,
-    type: "system",
-  },
-  {
-    id: 4,
-    title: "You were mentioned",
-    message: "Sarah Chen mentioned you in TASK-004 comments",
-    time: "45 min ago",
-    unread: true,
-    type: "mention",
-  },
-  {
-    id: 5,
-    title: "Deadline approaching",
-    message: "TASK-002 is due tomorrow - Design dashboard charts",
-    time: "1 hour ago",
-    unread: false,
-    type: "task",
-  },
-  {
-    id: 6,
-    title: "New comment on your ticket",
-    message: "John Doe commented on #2038 - Database connection issue",
-    time: "2 hours ago",
-    unread: true,
-    type: "ticket",
-  },
-  {
-    id: 7,
-    title: "Build failed",
-    message: "Production deployment failed - Check logs",
-    time: "3 hours ago",
-    unread: true,
-    type: "system",
-  },
-  {
-    id: 8,
-    title: "Task moved to review",
-    message: "Alex Kim moved TASK-007 to In Review",
-    time: "4 hours ago",
-    unread: false,
-    type: "task",
-  },
-  {
-    id: 9,
-    title: "New team member",
-    message: "Emma Wilson joined the IssueLane Core project",
-    time: "5 hours ago",
-    unread: false,
-    type: "system",
-  },
-  {
-    id: 10,
-    title: "Priority changed",
-    message: "TASK-005 priority changed to Urgent by Mike Ross",
-    time: "6 hours ago",
-    unread: true,
-    type: "task",
-  },
-  {
-    id: 11,
-    title: "Ticket reopened",
-    message: "#2032 reopened by customer - Login issue persists",
-    time: "8 hours ago",
-    unread: true,
-    type: "ticket",
-  },
-  {
-    id: 12,
-    title: "Sprint started",
-    message: "Sprint 24 started - 12 tasks assigned to you",
-    time: "10 hours ago",
-    unread: false,
-    type: "system",
-  },
-  {
-    id: 13,
-    title: "You were assigned as reviewer",
-    message: "James Lee requested your review on PR #442",
-    time: "12 hours ago",
-    unread: true,
-    type: "mention",
-  },
-  {
-    id: 14,
-    title: "Task blocked",
-    message: "TASK-009 blocked - Waiting for API documentation",
-    time: "1 day ago",
-    unread: false,
-    type: "task",
-  },
-  {
-    id: 15,
-    title: "Security alert",
-    message: "New vulnerability detected in dependency lodash",
-    time: "1 day ago",
-    unread: true,
-    type: "system",
-  },
-  {
-    id: 16,
-    title: "Milestone completed",
-    message: "v2.0 Beta milestone completed - 45/45 tasks done",
-    time: "2 days ago",
-    unread: false,
-    type: "system",
-  },
-  {
-    id: 17,
-    title: "New ticket created",
-    message: "Customer created #2056 - Payment not processing",
-    time: "2 days ago",
-    unread: false,
-    type: "ticket",
-  },
-  {
-    id: 18,
-    title: "Weekly summary",
-    message: "You completed 8 tasks this week - Great job!",
-    time: "3 days ago",
-    unread: false,
-    type: "system",
-  },
-  {
-    id: 19,
-    title: "Meeting reminder",
-    message: "Team standup in 15 minutes - Daily sync",
-    time: "3 days ago",
-    unread: false,
-    type: "mention",
-  },
-  {
-    id: 20,
-    title: "Task overdue",
-    message: "TASK-001 is now overdue - Please update status",
-    time: "4 days ago",
-    unread: true,
-    type: "task",
-  },
-];
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  unread: boolean;
+  type?: string;
+}
 
 function NotificationsModal() {
-  const [notifications, setNotifications] =
-    useState<Notification[]>(allNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [isOpen, setIsOpen] = useState(false);
+  const supabase = createClient();
+
+  const fetchAllNotifications = async () => {
+    const userProfile = localStorage.getItem("userProfile");
+    const userId = userProfile ? JSON.parse(userProfile).user_id : null;
+
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("user_notifications")
+      .select(
+        `
+        notifications (
+          notification_id,
+          title,
+          description,
+          created_at,
+          unread
+        )
+      `,
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Failed to fetch notifications");
+      return;
+    }
+
+    if (data) {
+      const formatted = data.map((item: any) => ({
+        id: item.notifications.notification_id,
+        title: item.notifications.title,
+        message: item.notifications.description,
+        time: item.notifications.created_at,
+        unread: item.notifications.unread,
+        type: "system", // Add type logic if you have it
+      }));
+      setNotifications(formatted);
+    }
+  };
+
+  // Fetch when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchAllNotifications();
+    }
+  }, [isOpen]);
+
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("notifications_modal")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_notifications",
+        },
+        () => {
+          if (isOpen) {
+            fetchAllNotifications();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, supabase]);
 
   const filteredNotifications =
     filter === "unread" ? notifications.filter((n) => n.unread) : notifications;
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
-  const markAsRead = (id: number) => {
+  const markAsRead = async (id: string) => {
+    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
     );
+
+    try {
+      await supabase
+        .from("notifications")
+        .update({ unread: false })
+        .eq("notification_id", id);
+    } catch (err) {
+      toast.error("Failed to mark as read");
+      // Revert on error
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, unread: true } : n)),
+      );
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const previousNotifications = notifications;
+
+    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+
+    try {
+      const userProfile = localStorage.getItem("userProfile");
+      const userId = userProfile ? JSON.parse(userProfile).user_id : null;
+
+      if (!userId) return;
+
+      const { data: userNotifs } = await supabase
+        .from("user_notifications")
+        .select("notification_id")
+        .eq("user_id", userId);
+
+      if (!userNotifs?.length) return;
+
+      const notificationIds = userNotifs.map((n) => n.notification_id);
+
+      await supabase
+        .from("notifications")
+        .update({ unread: false })
+        .in("notification_id", notificationIds);
+
+      toast.success("All notifications marked as read");
+    } catch (err) {
+      setNotifications(previousNotifications);
+      toast.error("Failed to mark all as read");
+    }
   };
 
-  const deleteNotification = (id: number) => {
+  const deleteNotification = async (id: string) => {
+    // Optimistic update
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+    try {
+      await supabase
+        .from("user_notifications")
+        .delete()
+        .eq("notification_id", id);
+    } catch (err) {
+      toast.error("Failed to delete notification");
+      fetchAllNotifications(); // Refetch to restore
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -211,8 +183,33 @@ function NotificationsModal() {
     return icons[type] || "📌";
   };
 
+  const formatTime = (timestamp: string) => {
+    // Add your formatManilaTime logic here or import it
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const formatNotificationMessage = (message: string) => {
+    if (!message.includes("•") && !message.includes("\n")) {
+      return <span>{message}</span>;
+    }
+
+    const lines = message.split("\n").filter((line) => line.trim());
+
+    return (
+      <div className="space-y-1">
+        <p className="font-medium text-gray-900">{lines[0]}</p>
+        {lines.slice(1).map((line, index) => (
+          <div key={index} className="flex items-start gap-2 text-gray-600">
+            <span className="text-indigo-500 mt-1">•</span>
+            <span>{line.replace("•", "").trim()}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -309,11 +306,11 @@ function NotificationsModal() {
                             <span className="ml-2 w-2 h-2 bg-indigo-600 rounded-full inline-block" />
                           )}
                         </p>
-                        <p className="text-sm text-gray-600 mt-0.5">
-                          {notification.message}
-                        </p>
+                        <div className="text-sm text-gray-600 mt-0.5">
+                          {formatNotificationMessage(notification.message)}
+                        </div>
                         <p className="text-xs text-gray-400 mt-1">
-                          {notification.time}
+                          {formatTime(notification.time)}
                         </p>
                       </div>
 

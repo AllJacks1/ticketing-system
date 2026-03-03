@@ -55,11 +55,13 @@ export interface Ticket {
   priority: "Low" | "Medium" | "High" | "Urgent";
 
   assignee: {
+    user_id?: string;
     name: string;
     avatar: string;
   } | null;
 
   reporter: {
+    user_id?: string;
     name: string;
     avatar: string;
   } | null;

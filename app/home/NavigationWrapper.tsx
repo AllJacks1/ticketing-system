@@ -60,7 +60,8 @@ export default function HomeLayout({
         `,
         )
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(3);
 
       if (data) {
         const formatted = data.map((item: any) => ({

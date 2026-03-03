@@ -69,7 +69,8 @@ export function NavigationBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] =
+    useState<Notification[]>(initialNotifications);
   const [cachedUser, setCachedUser] = useState<UserProfile | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const router = useRouter();
@@ -101,18 +102,20 @@ export function NavigationBar({
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.unread) return;
-    
+
     // Optimistic update
-    setNotifications(prev => 
-      prev.map(n => n.id === notification.id ? { ...n, unread: false } : n)
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notification.id ? { ...n, unread: false } : n)),
     );
 
     try {
       await onMarkAsRead?.(notification.id.toString());
     } catch (err) {
       // Revert on error
-      setNotifications(prev => 
-        prev.map(n => n.id === notification.id ? { ...n, unread: true } : n)
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, unread: true } : n,
+        ),
       );
       toast.error("Failed to mark as read");
     }
@@ -125,11 +128,11 @@ export function NavigationBar({
 
   const confirmMarkAllRead = async () => {
     setShowConfirmDialog(false);
-    
+
     const previousNotifications = notifications;
-    
+
     // Optimistic update
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
 
     try {
       await onMarkAllAsRead?.();
@@ -145,7 +148,7 @@ export function NavigationBar({
     try {
       const toastId = toast.loading("Logging out...");
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         toast.error(`Logout failed: ${error.message}`, { id: toastId });
         return;
@@ -153,7 +156,7 @@ export function NavigationBar({
 
       localStorage.clear();
       sessionStorage.clear();
-      
+
       document.cookie.split(";").forEach((cookie) => {
         const name = cookie.split("=")[0].trim();
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
@@ -165,6 +168,26 @@ export function NavigationBar({
       console.error(err);
       toast.error("An unexpected error occurred during logout");
     }
+  };
+
+  const formatNotificationMessage = (message: string) => {
+    if (!message.includes("•") && !message.includes("\n")) {
+      return <span>{message}</span>;
+    }
+
+    const lines = message.split("\n").filter((line) => line.trim());
+
+    return (
+      <div className="space-y-1">
+        <p className="font-medium text-gray-900">{lines[0]}</p>
+        {lines.slice(1).map((line, index) => (
+          <div key={index} className="flex items-start gap-2 text-gray-600">
+            <span className="text-indigo-500 mt-1">•</span>
+            <span>{line.replace("•", "").trim()}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -237,9 +260,9 @@ export function NavigationBar({
                         Notifications
                       </h3>
                       {unreadCount > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-xs"
                           onClick={handleMarkAllRead}
                         >
@@ -256,7 +279,9 @@ export function NavigationBar({
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
+                            onClick={() =>
+                              handleNotificationClick(notification)
+                            }
                             className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
                               notification.unread ? "bg-indigo-50/30" : ""
                             }`}
@@ -273,9 +298,11 @@ export function NavigationBar({
                                 <p className="text-sm font-medium text-gray-900">
                                   {notification.title}
                                 </p>
-                                <p className="text-sm text-gray-600 mt-0.5">
-                                  {notification.message}
-                                </p>
+                                <div className="text-sm text-gray-600 mt-0.5">
+                                  {formatNotificationMessage(
+                                    notification.message,
+                                  )}
+                                </div>
                                 <p className="text-xs text-gray-400 mt-1">
                                   {formatManilaTime(notification.time)}
                                 </p>
@@ -429,7 +456,8 @@ export function NavigationBar({
               Mark all as read?
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              Are you sure you want to mark all {unreadCount} notifications as read?
+              Are you sure you want to mark all {unreadCount} notifications as
+              read?
             </p>
             <div className="flex gap-3 justify-end">
               <Button

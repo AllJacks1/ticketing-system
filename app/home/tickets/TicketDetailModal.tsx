@@ -166,7 +166,8 @@ export default function TicketDetailModal({
         throw new Error("Invalid ticket ID");
       }
 
-      const { error } = await supabase
+      // Update ticket status
+      const { data: ticketData, error: updateError } = await supabase
         .from("tickets")
         .update({
           status: pendingStatus,
@@ -174,24 +175,81 @@ export default function TicketDetailModal({
             timeZone: "Asia/Manila",
           }),
         })
-        .eq("ticket_id", ticket.id);
+        .eq("ticket_id", ticket.id)
+        .select("assigned_by");
 
-      if (error) {
-        throw error;
+      if (updateError) throw updateError;
+
+      // Send notification to reporter if exists
+      if (ticket.reporter) {
+        await sendStatusNotification(toastId, ticketData[0].assigned_by);
       }
 
+      // Success cleanup
       onStatusChange?.(ticket.id, pendingStatus);
-
       toast.success("Status updated successfully", { id: toastId });
+
       setHasChanges(false);
       setShowAutoPromote(false);
     } catch (error: any) {
       console.error("Update error:", error);
       toast.error(error.message || "Failed to update status", { id: toastId });
+
+      // Revert to original state
       setPendingStatus(ticket.status);
       setShowAutoPromote(ticket.status === "Waiting");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Extracted notification logic
+  const sendStatusNotification = async (
+    toastId: string | number,
+    ticketId: string,
+  ) => {
+    const supabase = createClient();
+
+    try {
+      const { data: notification, error: notifError } = await supabase
+        .from("notifications")
+        .insert({
+          title: `Ticket #${ticket.id} Moved to ${pendingStatus}`,
+          description: `
+The ticket "${ticket.title}" has been updated.
+• Previous Status: ${ticket.status}
+• New Status: ${pendingStatus}
+• Updated At: ${new Date().toLocaleString()}
+`,
+        })
+        .select("notification_id")
+        .single();
+
+      if (notifError || !notification) {
+        toast.error("Status updated but notification failed to create", {
+          id: toastId,
+        });
+        return;
+      }
+
+      console.log(notification.notification_id);
+      console.log(ticket.reporter);
+      const { error: linkError } = await supabase
+        .from("user_notifications")
+        .insert({
+          notification_id: notification.notification_id,
+          user_id: ticketId,
+        });
+
+      if (linkError) {
+        toast.error("Status updated but notification delivery failed", {
+          id: toastId,
+        });
+      }
+    } catch (err) {
+      toast.error("Status updated but notification error occurred", {
+        id: toastId,
+      });
     }
   };
 
