@@ -5,23 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const getInitials = (name: string) => {
-  if (!name) return "JD";
-
-  return name
-    .trim()
-    .split(" ")
-    .filter(Boolean)
-    .map((n) => n[0].toUpperCase())
-    .slice(0, 2)
-    .join("") || "JD";
+export const getInitials = (first_name: string, last_name: string) => {
+  const firstInitial = first_name ? first_name[0].toUpperCase() : ""; 
+  const lastInitial = last_name ? last_name[0].toUpperCase() : ""; 
+  return `${firstInitial}${lastInitial}`;
 };
 
 export const formatManilaTime = (utcString: string) => {
   if (!utcString) return "";
-  
+
   const date = new Date(utcString);
-  
+
   return date.toLocaleString("en-US", {
     timeZone: "Asia/Manila",
     month: "short",

@@ -74,7 +74,6 @@ export function NavigationBar({
       if (storedProfile) {
         const userData = JSON.parse(storedProfile);
         setCachedUser(userData);
-        console.log("Cached user loaded:", userData);
       }
     } catch (err) {
       console.error("Error reading cached user:", err);
@@ -242,7 +241,8 @@ export function NavigationBar({
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                   {cachedUser ? (
                     getInitials(
-                      `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim(),
+                      cachedUser.first_name ?? "",
+                      cachedUser.last_name ?? "",
                     )
                   ) : (
                     <div></div>
@@ -300,7 +300,8 @@ export function NavigationBar({
                           "Unknown",
                         avatar: cachedUser
                           ? getInitials(
-                              `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim(),
+                              cachedUser.first_name ?? "",
+                              cachedUser.last_name ?? "",
                             )
                           : user.avatar,
                       }}

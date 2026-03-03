@@ -21,12 +21,11 @@ import {
 import {
   Layout,
   Calendar,
-  User,
-  CheckSquare,
   MessageSquare,
   AlertCircle,
 } from "lucide-react";
 import { TaskDetailModalProps } from "@/lib/types";
+import { formatManilaTime } from "@/lib/utils";
 
 export default function TaskDetailModal({
   children,
@@ -58,31 +57,30 @@ export default function TaskDetailModal({
   const statuses = ["To Do", "In Progress", "In Review", "Completed"];
 
   const details = [
-    {
-      icon: User,
-      label: "Assignee",
-      value: (
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-            {task.assignee.avatar}
-          </div>
+      {
+        avatar: task.assignee?.avatar,
+        label: "Assignee",
+        value: (
           <span className="text-sm font-medium text-gray-900">
-            {task.assignee.name}
+            {task.assignee?.first_name || "" + task.assignee?.last_name || ""}
           </span>
-        </div>
-      ),
-    },
-    {
-      icon: Calendar,
-      label: "Due Date",
-      value: task.dueDate || "No due date",
-    },
-    {
-      icon: CheckSquare,
-      label: "Created",
-      value: task.createdAt,
-    },
-  ];
+        ),
+      },
+      {
+        avatar: task.author?.avatar,
+        label: "Reporter",
+        value: (
+          <span className="text-sm font-medium text-gray-900">
+            {task.author?.first_name || "" + task.author?.last_name || ""}
+          </span>
+        ),
+      },
+      {
+        icon: Calendar,
+        label: "Created",
+        value: formatManilaTime(task.created_at),
+      },
+    ];
 
   return (
     <Dialog>
@@ -92,11 +90,11 @@ export default function TaskDetailModal({
         {/* Header */}
         <div className="p-6 border-b">
           <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <span className="font-medium text-gray-900">{task.id}</span>
+            <span className="font-medium text-gray-900">{task.task_id}</span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Layout className="w-3.5 h-3.5" />
-              {task.project}
+              {task.projectName}
             </span>
           </div>
           <DialogTitle className="text-lg font-semibold leading-tight">
@@ -109,7 +107,7 @@ export default function TaskDetailModal({
           <div className="flex items-center gap-2">
             <Select
               value={task.status}
-              onValueChange={(value) => onStatusChange?.(task.id, value)}
+              onValueChange={(value) => onStatusChange?.(task.task_id, value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -147,21 +145,31 @@ export default function TaskDetailModal({
 
           {/* Details Grid - 3 columns */}
           <div className="grid grid-cols-3 gap-3">
-            {details.map((item) => (
-              <div
-                key={item.label}
-                className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg"
-              >
-                <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
-                  <item.icon className="w-3.5 h-3.5 text-gray-500" />
+              {details.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg"
+                >
+                  <div>
+                    {item.avatar ? (
+                      <div className="shrink-0 p-1.5">
+                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {item.avatar}
+                        </div>
+                      </div>
+                    ) : item.icon ? (
+                      <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
+                        <item.icon className="w-6 h-6 text-gray-400" />
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+                  <div className="text-sm font-medium text-gray-900 w-full truncate">
+                    {item.value}
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
-                <div className="text-sm font-medium text-gray-900 w-full truncate">
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
           {/* Activity */}
           <div className="space-y-2">

@@ -131,16 +131,12 @@ export default function TasksPage() {
             author: {
               first_name: author?.first_name || "",
               last_name: author?.last_name || "",
-              avatar: getInitials(
-                `${author?.first_name || "" + author?.last_name || ""}`,
-              ),
+              avatar: getInitials(author?.first_name, author?.last_name),
             },
             assignee: {
               first_name: user?.first_name || "",
               last_name: user?.last_name || "",
-              avatar: getInitials(
-                `${user?.first_name || "" + user?.last_name || ""}`,
-              ),
+              avatar: getInitials(user?.first_name, user?.last_name),
             },
           };
         });
@@ -182,9 +178,15 @@ export default function TasksPage() {
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.task_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
+      task.title.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.task_id
+        .toString()
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      task.description
+        .toString()
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || task.status === statusFilter;
     const matchesPriority =

@@ -69,8 +69,6 @@ export default function TicketsPage() {
         )
         .order("created_at", { ascending: false });
 
-      console.log("Supabase response data:", data);
-
       if (error) throw error;
 
       const tickets: Ticket[] = data.map((ticket: any) => ({
@@ -83,7 +81,11 @@ export default function TicketsPage() {
         updatedAt: ticket.updated_at,
         dueDate: ticket.deadline || undefined,
         tags: [],
-        comments: ticket.remarks ? (Array.isArray(ticket.remarks) ? ticket.remarks : [ticket.remarks]) : [],
+        comments: ticket.remarks
+          ? Array.isArray(ticket.remarks)
+            ? ticket.remarks
+            : [ticket.remarks]
+          : [],
 
         // ✅ Correct mapping of attachments
         attachments: ticket.files
@@ -102,9 +104,8 @@ export default function TicketsPage() {
                 " " +
                 ticket.assigned_to_user.last_name,
               avatar: getInitials(
-                ticket.assigned_to_user.first_name +
-                  " " +
-                  ticket.assigned_to_user.last_name,
+                ticket.assigned_to_user.first_name,
+                ticket.assigned_to_user.last_name,
               ),
             }
           : null,
@@ -116,9 +117,8 @@ export default function TicketsPage() {
                 " " +
                 ticket.assigned_by_user.last_name,
               avatar: getInitials(
-                ticket.assigned_by_user.first_name +
-                  " " +
-                  ticket.assigned_by_user.last_name,
+                ticket.assigned_by_user.first_name,
+                ticket.assigned_by_user.last_name,
               ),
             }
           : null,
@@ -160,9 +160,15 @@ export default function TicketsPage() {
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
-      ticket.title.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.title
+        .toString()
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       ticket.id.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.description.toString().toLowerCase().includes(searchQuery.toLowerCase());
+      ticket.description
+        .toString()
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || ticket.status === statusFilter;
     const matchesPriority =
