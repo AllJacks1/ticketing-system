@@ -20,7 +20,7 @@ import ProfileModal from "./ProfileModal";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { toast } from "sonner";
-import { getInitials } from "@/lib/utils";
+import { formatManilaTime, getInitials } from "@/lib/utils";
 import { UserProfile } from "@/lib/types";
 
 const defaultNavLinks: NavLink[] = [
@@ -57,16 +57,29 @@ const defaultNotifications: Notification[] = [
 
 export function NavigationBar({
   user = { name: "John Doe", role: "Product Manager", avatar: "JD" },
-  notifications = defaultNotifications,
+  notifications: initialNotifications = defaultNotifications,
   navLinks = defaultNavLinks,
   onNavigate,
-}: NavigationBarProps) {
+  onMarkAsRead,
+  onMarkAllAsRead,
+}: NavigationBarProps & {
+  onMarkAsRead?: (id: string) => Promise<void>;
+  onMarkAllAsRead?: () => Promise<void>;
+}) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [cachedUser, setCachedUser] = useState<UserProfile | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  useEffect(() => {
+    setNotifications(initialNotifications);
+  }, [initialNotifications]);
 
   useEffect(() => {
     try {
@@ -86,34 +99,67 @@ export function NavigationBar({
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = async () => {
-    const supabase = createClient();
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.unread) return;
+    
+    // Optimistic update
+    setNotifications(prev => 
+      prev.map(n => n.id === notification.id ? { ...n, unread: false } : n)
+    );
 
     try {
-      // 1️⃣ Show a loading toast
-      const toastId = toast.loading("Logging out...");
+      await onMarkAsRead?.(notification.id.toString());
+    } catch (err) {
+      // Revert on error
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? { ...n, unread: true } : n)
+      );
+      toast.error("Failed to mark as read");
+    }
+  };
 
-      // 2️⃣ Sign out from Supabase
+  const handleMarkAllRead = () => {
+    if (unreadCount === 0) return;
+    setShowConfirmDialog(true);
+  };
+
+  const confirmMarkAllRead = async () => {
+    setShowConfirmDialog(false);
+    
+    const previousNotifications = notifications;
+    
+    // Optimistic update
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+
+    try {
+      await onMarkAllAsRead?.();
+      toast.success("All notifications marked as read");
+    } catch (err) {
+      // Revert on error
+      setNotifications(previousNotifications);
+      toast.error("Failed to mark all as read");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const toastId = toast.loading("Logging out...");
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         toast.error(`Logout failed: ${error.message}`, { id: toastId });
         return;
       }
 
-      // 3️⃣ Clear local/session storage
       localStorage.clear();
       sessionStorage.clear();
-
-      // 4️⃣ Clear all cookies
+      
       document.cookie.split(";").forEach((cookie) => {
         const name = cookie.split("=")[0].trim();
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       });
 
-      // 5️⃣ Success toast
       toast.success("Logged out successfully!", { id: toastId });
-
-      // 6️⃣ Redirect to login page
       router.replace("/");
     } catch (err) {
       console.error(err);
@@ -128,7 +174,7 @@ export function NavigationBar({
           {/* Logo & Brand */}
           <div
             className="flex items-center gap-8 hover:cursor-pointer"
-            onClick={() => (window.location.href = "/home")}
+            onClick={() => router.push("/home")}
           >
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
@@ -163,6 +209,7 @@ export function NavigationBar({
                 </a>
               ))}
             </div>
+
             {/* Notifications Dropdown */}
             <div className="relative">
               <Button
@@ -189,40 +236,54 @@ export function NavigationBar({
                       <h3 className="font-semibold text-gray-900">
                         Notifications
                       </h3>
-                      <Button variant="ghost" size="sm" className="text-xs">
-                        Mark all read
-                      </Button>
+                      {unreadCount > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={handleMarkAllRead}
+                        >
+                          Mark all read
+                        </Button>
+                      )}
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
-                            notification.unread ? "bg-indigo-50/30" : ""
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={`w-2 h-2 mt-2 rounded-full shrink-0 ${
-                                notification.unread
-                                  ? "bg-indigo-600"
-                                  : "bg-gray-300"
-                              }`}
-                            />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">
-                                {notification.title}
-                              </p>
-                              <p className="text-sm text-gray-600 mt-0.5">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {notification.time}
-                              </p>
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No notifications
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
+                              notification.unread ? "bg-indigo-50/30" : ""
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-2 h-2 mt-2 rounded-full shrink-0 ${
+                                  notification.unread
+                                    ? "bg-indigo-600"
+                                    : "bg-gray-300"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {notification.title}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-0.5">
+                                  {notification.message}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {formatManilaTime(notification.time)}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                     <div className="p-3 border-t border-gray-100 bg-gray-50">
                       <NotificationsModal />
@@ -249,22 +310,20 @@ export function NavigationBar({
                   )}
                 </div>
                 <div className="hidden md:block text-left">
-                  <div className="hidden md:block text-left">
-                    <div className="text-sm font-medium text-gray-900">
-                      {cachedUser ? (
-                        `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                  <div className="text-sm font-medium text-gray-900">
+                    {cachedUser ? (
+                      `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                    ) : (
+                      <Skeleton className="w-20 h-4" />
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {cachedUser?.assignment?.role?.name ||
+                      (cachedUser === null ? (
+                        <Skeleton className="w-16 h-3" />
                       ) : (
-                        <Skeleton className="w-20 h-4" />
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {cachedUser?.assignment?.role?.name ||
-                        (cachedUser === null ? (
-                          <Skeleton className="w-16 h-3" />
-                        ) : (
-                          user.role
-                        ))}
-                    </div>
+                        user.role
+                      ))}
                   </div>
                 </div>
                 <ChevronDown
@@ -307,13 +366,13 @@ export function NavigationBar({
                       }}
                     />
                     <div className="border-t border-gray-100 my-1" />
-                    <a
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
                       onClick={handleLogout}
                     >
                       <LogOut className="w-4 h-4" />
                       Sign out
-                    </a>
+                    </button>
                   </div>
                 </>
               )}
@@ -358,6 +417,36 @@ export function NavigationBar({
                 {link.name}
               </a>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Mark all as read?
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to mark all {unreadCount} notifications as read?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfirmDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={confirmMarkAllRead}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Confirm
+              </Button>
+            </div>
           </div>
         </div>
       )}
