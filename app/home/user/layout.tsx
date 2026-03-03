@@ -1,4 +1,4 @@
-import NavigationWrapper from "@/app/home/admin/NavigationWrapper";
+import NavigationWrapper from "@/app/home/user/NavigationWrapper";
 
 export default function HomeLayout({
   children,

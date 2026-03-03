@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/supabase/client";
 import TopNavigation from "@/app/home/admin/NavigationBar";
-import { LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Ticket } from "lucide-react";
 import { Notification } from "@/lib/types";
 
 export default function HomeLayout({
@@ -21,21 +21,15 @@ export default function HomeLayout({
   const navLinks = [
     {
       name: "Dashboard",
-      href: "/home",
+      href: "/home/user",
       icon: LayoutDashboard,
-      active: pathname === "/home",
+      active: pathname === "/home/user",
     },
     {
       name: "My Tickets",
-      href: "/home/tickets",
+      href: "/home/user/tickets",
       icon: Ticket,
-      active: pathname === "/home/tickets",
-    },
-    {
-      name: "My Tasks",
-      href: "/home/tasks",
-      icon: CheckSquare,
-      active: pathname === "/home/tasks",
+      active: pathname === "/home/user/tickets",
     },
   ];
 
