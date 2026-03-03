@@ -46,7 +46,7 @@ export default function TicketsPage() {
   const [pageSize, setPageSize] = useState(5);
 
   // Fetch tickets from Supabase
-  const fetchTasks = async () => {
+  const fetchTickets = async () => {
     try {
       setLoading(true);
       const supabase = createClient();
@@ -136,7 +136,7 @@ export default function TicketsPage() {
 
   // Load tickets on mount
   useEffect(() => {
-    fetchTasks();
+    fetchTickets();
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -218,7 +218,7 @@ export default function TicketsPage() {
 
   // Refresh tickets after creating new one
   const handleTicketCreated = () => {
-    fetchTasks();
+    fetchTickets();
   };
 
   return (

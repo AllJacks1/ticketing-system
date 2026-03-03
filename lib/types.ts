@@ -84,19 +84,24 @@ export interface TicketDetailModalProps {
   onStatusChange?: (ticketId: string, newStatus: string) => void;
 }
 export interface Task {
-  id: string;
+  task_id: string;
   title: string;
   description: string;
-  status: "To Do" | "In Progress" | "In Review" | "Completed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  project: string;
-  assignee: {
-    name: string;
+  status: string;
+  priority: string;
+  due_date: string;
+  created_at: string;
+  projectName: string;
+  author: {
+    first_name: string;
+    last_name: string;
     avatar: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  dueDate?: string;
+  },
+  assignee: {
+    first_name: string;
+    last_name: string;
+    avatar: string;
+  },
 }
 
 export interface TaskDetailModalProps {
