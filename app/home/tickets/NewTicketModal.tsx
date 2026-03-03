@@ -171,7 +171,8 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
     try {
       const toastId = toast.loading("Creating ticket...");
 
-      const { data: ticketData, error: ticketError } = await supabase
+      // Insert ticket
+      const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
         .insert({
           title,
@@ -187,21 +188,53 @@ export default function NewTicketModal({ onSubmit }: NewTicketModalProps) {
             timeZone: "Asia/Manila",
           }),
         })
-        .select("ticket_id")
+        .select("ticket_id, assigned_to")
         .single();
 
-      if (ticketError) {
-        toast.error(`Failed to create ticket: ${ticketError.message}`, {
+      if (ticketError || !ticket) {
+        toast.error(`Failed to create ticket: ${ticketError?.message}`, {
           id: toastId,
         });
         return false;
       }
 
+      // Only create notification if assigned to someone
+      if (ticket.assigned_to) {
+        const { data: notification, error: notifError } = await supabase
+          .from("notifications")
+          .insert({
+            title: "A new ticket has been assigned",
+            description: `Ticket ${ticket.ticket_id} has been assigned to you.`,
+          })
+          .select("notification_id")
+          .single();
+
+        if (notifError || !notification) {
+          toast.error("Ticket created but failed to send notification", {
+            id: toastId,
+          });
+          // Continue - don't return false, ticket was created
+        } else {
+          const { error: userNotifError } = await supabase
+            .from("user_notifications")
+            .insert({
+              notification_id: notification.notification_id,
+              user_id: ticket.assigned_to,
+            });
+
+          if (userNotifError) {
+            toast.error("Ticket created but notification delivery failed", {
+              id: toastId,
+            });
+          }
+        }
+      }
+
       toast.success("Ticket created successfully!", { id: toastId });
-      return ticketData;
+      return ticket;
     } catch (err) {
-      console.error(err);
-      toast.error("An unexpected error occurred while creating ticket");
+      console.error("Create ticket error:", err);
+      toast.error("An unexpected error occurred while creating the ticket");
       return false;
     }
   }
