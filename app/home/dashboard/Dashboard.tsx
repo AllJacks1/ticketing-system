@@ -1,136 +1,268 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LayoutDashboard, TicketPlus, CheckSquare } from "lucide-react";
 import NewTicketModal from "@/app/home/tickets/NewTicketModal";
 import NewTaskModal from "../tasks/NewTaskModal";
+import { createClient } from "@/supabase/client";
+import { Task, Ticket } from "@/lib/types";
+import {
+  formatDueDate,
+  formatManilaTime,
+  getInitials,
+  isUrgent,
+} from "@/lib/utils";
+import { toast } from "sonner";
+
+interface DashboardStats {
+  label: string;
+  value: number;
+  color: "blue" | "amber" | "green" | "purple";
+  icon: React.ElementType;
+}
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState([
-    {
-      id: "TASK-001",
-      title: "Implement user authentication API",
-      status: "In Progress",
-      priority: "High",
-      project: "IssueLane Core",
-      dueDate: "2 days",
-      progress: 65,
-    },
-    {
-      id: "TASK-002",
-      title: "Design dashboard analytics charts",
-      status: "To Do",
-      priority: "Medium",
-      project: "IssueLane Core",
-      dueDate: "5 days",
-      progress: 0,
-    },
-    {
-      id: "TASK-003",
-      title: "Fix responsive layout on mobile",
-      status: "Completed",
-      priority: "High",
-      project: "IssueLane Core",
-      dueDate: "Done",
-      progress: 100,
-    },
-    {
-      id: "TASK-004",
-      title: "Write documentation for API endpoints",
-      status: "To Do",
-      priority: "Low",
-      project: "IssueLane Docs",
-      dueDate: "1 week",
-      progress: 0,
-    },
-    {
-      id: "TASK-005",
-      title: "Optimize database queries",
-      status: "In Review",
-      priority: "Medium",
-      project: "IssueLane Core",
-      dueDate: "3 days",
-      progress: 90,
-    },
-  ]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const stats = [
+  const stats: DashboardStats[] = [
     {
       label: "Open Tickets",
-      value: 24,
-      change: "+12%",
-      trend: "up",
+      value: tickets.filter((t) => t.status === "Open").length,
       color: "blue",
-      icon: Ticket,
+      icon: TicketPlus,
     },
     {
       label: "Tasks In Progress",
-      value: 8,
-      change: "+3",
-      trend: "up",
+      value: tasks.filter((t) => t.status === "In Progress").length,
       color: "amber",
       icon: LayoutDashboard,
     },
     {
-      label: "Resolved Today",
-      value: 16,
-      change: "+5",
-      trend: "up",
+      label: "Tickets Resolved Today",
+      value: tickets.filter((t) => t.status === "Resolved").length,
       color: "green",
       icon: CheckSquare,
     },
   ];
 
-  const recentTickets = [
-    {
-      id: "#2042",
-      title: "Login page not loading on mobile",
-      status: "Open",
-      priority: "High",
-      user: "Sarah Chen",
-      time: "5 min ago",
-      avatar: "SC",
-    },
-    {
-      id: "#2041",
-      title: "API timeout error on checkout",
-      status: "In Progress",
-      priority: "Urgent",
-      user: "Mike Ross",
-      time: "12 min ago",
-      avatar: "MR",
-    },
-    {
-      id: "#2040",
-      title: "Update documentation for v2.0",
-      status: "Waiting",
-      priority: "Low",
-      user: "Emma Wilson",
-      time: "1 hour ago",
-      avatar: "EW",
-    },
-    {
-      id: "#2039",
-      title: "Dark mode toggle broken",
-      status: "Resolved",
-      priority: "Medium",
-      user: "James Lee",
-      time: "2 hours ago",
-      avatar: "JL",
-    },
-    {
-      id: "#2038",
-      title: "Database connection pool exhausted",
-      status: "Closed",
-      priority: "Urgent",
-      user: "Alex Kim",
-      time: "3 hours ago",
-      avatar: "AK",
-    },
-  ];
+  // Get userId once on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem("userProfile");
+    if (storedUser) {
+      try {
+        const { user_id } = JSON.parse(storedUser);
+        setUserId(user_id);
+      } catch {
+        toast.error("Failed to parse user profile");
+      }
+    }
+  }, []);
+
+  // Fetch tickets
+  const fetchTickets = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingTickets(true);
+    const supabase = createClient();
+
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select(
+          `
+          ticket_id,
+          title,
+          description,
+          status,
+          priority,
+          deadline,
+          created_at,
+          updated_at,
+          remarks,
+          files(type, url),
+          assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
+          assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
+        `,
+        )
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      const formattedTickets: Ticket[] = (data || []).map((ticket: any) => ({
+        id: ticket.ticket_id,
+        title: ticket.title,
+        description: ticket.description,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.created_at,
+        updatedAt: ticket.updated_at,
+        dueDate: ticket.deadline || undefined,
+        tags: [],
+        comments: ticket.remarks
+          ? Array.isArray(ticket.remarks)
+            ? ticket.remarks
+            : [ticket.remarks]
+          : [],
+        attachments: ticket.files
+          ? Array.isArray(ticket.files)
+            ? ticket.files.map((f: any) => ({
+                type: f.type,
+                url: f.url,
+              }))
+            : [{ type: ticket.files.type, url: ticket.files.url }]
+          : [],
+        assignee: ticket.assigned_to_user
+          ? {
+              name: `${ticket.assigned_to_user.first_name} ${ticket.assigned_to_user.last_name}`,
+              avatar: getInitials(
+                ticket.assigned_to_user.first_name,
+                ticket.assigned_to_user.last_name,
+              ),
+            }
+          : null,
+        reporter: ticket.assigned_by_user
+          ? {
+              name: `${ticket.assigned_by_user.first_name} ${ticket.assigned_by_user.last_name}`,
+              avatar: getInitials(
+                ticket.assigned_by_user.first_name,
+                ticket.assigned_by_user.last_name,
+              ),
+            }
+          : null,
+      }));
+
+      setTickets(formattedTickets);
+    } catch (err) {
+      console.error("Error fetching tickets:", err);
+      toast.error("Failed to load tickets");
+    } finally {
+      setLoadingTickets(false);
+    }
+  }, [userId]);
+
+  // Fetch tasks
+  const fetchTasks = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingTasks(true);
+    const supabase = createClient();
+
+    try {
+      const { data: taskAssignees, error } = await supabase
+        .from("task_assignees")
+        .select(
+          `
+          tasks!inner (
+            task_id,
+            created_at,
+            title,
+            author (first_name, last_name),
+            due_date,
+            status,
+            priority,
+            description,
+            task_projects!inner (project_id, projects!inner (name))
+          ),
+          users (first_name, last_name)
+        `,
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (!taskAssignees?.length) {
+        setTasks([]);
+        return;
+      }
+
+      const formattedTasks = taskAssignees.flatMap((assignee: any) => {
+        const user = Array.isArray(assignee.users)
+          ? assignee.users[0]
+          : assignee.users;
+
+        const tasks = Array.isArray(assignee.tasks)
+          ? assignee.tasks
+          : [assignee.tasks];
+
+        return tasks.map((task: any) => {
+          const author = Array.isArray(task.author)
+            ? task.author[0]
+            : task.author;
+
+          const taskProject = Array.isArray(task.task_projects)
+            ? task.task_projects[0]
+            : task.task_projects;
+
+          const project = taskProject?.projects
+            ? Array.isArray(taskProject.projects)
+              ? taskProject.projects[0]
+              : taskProject.projects
+            : null;
+
+          return {
+            task_id: task.task_id,
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            priority: task.priority,
+            due_date: task.due_date,
+            created_at: task.created_at,
+            projectName: project?.name || null,
+            author: {
+              first_name: author?.first_name || "",
+              last_name: author?.last_name || "",
+              avatar: getInitials(author?.first_name, author?.last_name),
+            },
+            assignee: {
+              first_name: user?.first_name || "",
+              last_name: user?.last_name || "",
+              avatar: getInitials(user?.first_name, user?.last_name),
+            },
+          };
+        });
+      });
+
+      setTasks(formattedTasks);
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+      toast.error("Failed to load tasks");
+    } finally {
+      setLoadingTasks(false);
+    }
+  }, [userId]);
+
+  // Load data when userId is available
+  useEffect(() => {
+    if (!userId) return;
+
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchTickets(), fetchTasks()]);
+      } catch (err) {
+        if (isMounted) {
+          toast.error("Failed to load dashboard data");
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, fetchTickets, fetchTasks]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -156,10 +288,26 @@ export default function DashboardPage() {
     return colors[priority] || "bg-gray-100 text-gray-600";
   };
 
+  const getStatIconColor = (color: string) => {
+    const colors: Record<string, string> = {
+      blue: "bg-blue-50 text-blue-600",
+      amber: "bg-amber-50 text-amber-600",
+      green: "bg-green-50 text-green-600",
+      purple: "bg-purple-50 text-purple-600",
+    };
+    return colors[color] || "bg-gray-50 text-gray-600";
+  };
+
+  const completedTasksCount = tasks.filter(
+    (t) => t.status === "Completed",
+  ).length;
+  const taskProgress =
+    tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
+
   return (
-    <>
-      <div className="flex flex-col gap-6 mb-8 sm:flex-row sm:items-center sm:justify-between">
-        {/* Header */}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
             Dashboard
@@ -169,26 +317,24 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <NewTicketModal
             onSubmit={(ticket) => {
               console.log("New ticket:", ticket);
-              // TODO: Add ticket to state or trigger mutation
+              fetchTickets(); // Refresh after creation
             }}
           />
-
           <NewTaskModal
             onSubmit={(task) => {
               console.log("New task:", task);
-              // TODO: Add task to state or trigger mutation
+              fetchTasks(); // Refresh after creation
             }}
           />
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map((stat, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
@@ -202,33 +348,17 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div
-                  className={`p-2 rounded-lg ${
-                    stat.color === "blue"
-                      ? "bg-blue-50 text-blue-600"
-                      : stat.color === "amber"
-                        ? "bg-amber-50 text-amber-600"
-                        : stat.color === "green"
-                          ? "bg-green-50 text-green-600"
-                          : "bg-purple-50 text-purple-600"
-                  }`}
+                  className={`p-2 rounded-lg ${getStatIconColor(stat.color)}`}
                 >
                   <stat.icon className="w-5 h-5" />
                 </div>
-              </div>
-              <div className="flex items-center gap-1 mt-4">
-                <span
-                  className={`text-sm font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"}`}
-                >
-                  {stat.change}
-                </span>
-                <span className="text-sm text-gray-500">from last week</span>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Main Content Grid */}
+      {/* Recent Tickets */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
           <CardTitle className="text-lg font-semibold">
@@ -243,61 +373,73 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-gray-200">
-            {recentTickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium shrink-0">
-                    {ticket.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
-                          {ticket.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-500">
-                            {ticket.id}
-                          </span>
-                          <span className="text-gray-300">•</span>
-                          <span className="text-xs text-gray-500">
-                            by {ticket.user}
-                          </span>
-                          <span className="text-gray-300">•</span>
-                          <span className="text-xs text-gray-500">
-                            {ticket.time}
-                          </span>
+          {loadingTickets ? (
+            <div className="p-4 space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <p>No tickets found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {tickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium shrink-0">
+                      {ticket.reporter?.avatar || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                            {ticket.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-xs text-gray-500">
+                              {ticket.id}
+                            </span>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-xs text-gray-500">
+                              by {ticket.reporter?.name || "Unknown"}
+                            </span>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-xs text-gray-500">
+                              {formatManilaTime(ticket.createdAt)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant="outline"
-                          className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
-                        >
-                          {ticket.priority}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
-                        >
-                          {ticket.status}
-                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            variant="outline"
+                            className={`w-20 justify-center text-center ${getPriorityColor(ticket.priority)}`}
+                          >
+                            {ticket.priority}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`w-24 justify-center text-center ${getStatusColor(ticket.status)}`}
+                          >
+                            {ticket.status}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* My Tasks Section */}
-      <Card className="mt-8">
+      {/* My Tasks */}
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
           <div>
             <CardTitle className="text-lg font-semibold">My Tasks</CardTitle>
@@ -307,72 +449,85 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">
-              {tasks.filter((t) => t.status === "Completed").length}/
-              {tasks.length} completed
+              {completedTasksCount}/{tasks.length} completed
             </span>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 transition-all duration-500"
-                style={{
-                  width: `${(tasks.filter((t) => t.status === "Completed").length / tasks.length) * 100}%`,
-                }}
+                style={{ width: `${taskProgress}%` }}
               />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-gray-200">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-gray-500">
-                        {task.id}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-xs text-gray-500">
-                        {task.project}
-                      </span>
-                      {task.dueDate !== "Done" && (
-                        <>
-                          <span className="text-gray-300">•</span>
-                          <span
-                            className={`text-xs ${task.dueDate.includes("day") && parseInt(task.dueDate) <= 2 ? "text-red-600 font-medium" : "text-gray-500"}`}
-                          >
-                            Due in {task.dueDate}
-                          </span>
-                        </>
-                      )}
+          {loadingTasks ? (
+            <div className="p-4 space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <p>No tasks assigned</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {tasks.map((task) => (
+                <div
+                  key={task.task_id}
+                  className="p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs font-medium text-gray-500">
+                          {task.task_id}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-xs text-gray-500">
+                          {task.projectName || "No project"}
+                        </span>
+                        {task.due_date && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <span
+                              className={`text-xs ${
+                                isUrgent(task.due_date)
+                                  ? "text-red-600 font-medium"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              Due in {formatDueDate(task.due_date)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 mb-2">
+                        {task.title}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-900 mb-2">
-                      {task.title}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <Badge
-                      variant="outline"
-                      className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
-                    >
-                      {task.priority}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
-                    >
-                      {task.status}
-                    </Badge>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
+                      >
+                        {task.priority}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
+                      >
+                        {task.status}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }
