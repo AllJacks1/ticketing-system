@@ -34,13 +34,13 @@ export default function DashboardPage() {
 
   const stats: DashboardStats[] = [
     {
-      label: "User Open Tickets",
+      label: "Created Tickets",
       value: tickets.filter((t) => t.status === "Open").length,
       color: "blue",
       icon: TicketPlus,
     },
     {
-      label: "Tasks In Progress",
+      label: "Tickets In Progress",
       value: tasks.filter((t) => t.status === "In Progress").length,
       color: "amber",
       icon: LayoutDashboard,
@@ -149,120 +149,10 @@ export default function DashboardPage() {
     }
   }, [userId]);
 
-  // Fetch tasks
-  const fetchTasks = useCallback(async () => {
-    if (!userId) return;
-
-    setLoadingTasks(true);
-    const supabase = createClient();
-
-    try {
-      const { data: taskAssignees, error } = await supabase
-        .from("task_assignees")
-        .select(
-          `
-          tasks!inner (
-            task_id,
-            created_at,
-            title,
-            author (first_name, last_name),
-            due_date,
-            status,
-            priority,
-            description,
-            task_projects!inner (project_id, projects!inner (name))
-          ),
-          users (first_name, last_name)
-        `,
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      if (!taskAssignees?.length) {
-        setTasks([]);
-        return;
-      }
-
-      const formattedTasks = taskAssignees.flatMap((assignee: any) => {
-        const user = Array.isArray(assignee.users)
-          ? assignee.users[0]
-          : assignee.users;
-
-        const tasks = Array.isArray(assignee.tasks)
-          ? assignee.tasks
-          : [assignee.tasks];
-
-        return tasks.map((task: any) => {
-          const author = Array.isArray(task.author)
-            ? task.author[0]
-            : task.author;
-
-          const taskProject = Array.isArray(task.task_projects)
-            ? task.task_projects[0]
-            : task.task_projects;
-
-          const project = taskProject?.projects
-            ? Array.isArray(taskProject.projects)
-              ? taskProject.projects[0]
-              : taskProject.projects
-            : null;
-
-          return {
-            task_id: task.task_id,
-            title: task.title,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-            due_date: task.due_date,
-            created_at: task.created_at,
-            projectName: project?.name || null,
-            author: {
-              first_name: author?.first_name || "",
-              last_name: author?.last_name || "",
-              avatar: getInitials(author?.first_name, author?.last_name),
-            },
-            assignee: {
-              first_name: user?.first_name || "",
-              last_name: user?.last_name || "",
-              avatar: getInitials(user?.first_name, user?.last_name),
-            },
-          };
-        });
-      });
-
-      setTasks(formattedTasks);
-    } catch (err) {
-      console.error("Error fetching tasks:", err);
-      toast.error("Failed to load tasks");
-    } finally {
-      setLoadingTasks(false);
-    }
-  }, [userId]);
-
   // Load data when userId is available
   useEffect(() => {
-    if (!userId) return;
-
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        await Promise.all([fetchTickets(), fetchTasks()]);
-      } catch (err) {
-        if (isMounted) {
-          toast.error("Failed to load dashboard data");
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [userId, fetchTickets, fetchTasks]);
+    fetchTickets();
+  }, [userId]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -322,12 +212,6 @@ export default function DashboardPage() {
             onSubmit={(ticket) => {
               console.log("New ticket:", ticket);
               fetchTickets(); // Refresh after creation
-            }}
-          />
-          <NewTaskModal
-            onSubmit={(task) => {
-              console.log("New task:", task);
-              fetchTasks(); // Refresh after creation
             }}
           />
         </div>
@@ -429,97 +313,6 @@ export default function DashboardPage() {
                           </Badge>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* My Tasks */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200">
-          <div>
-            <CardTitle className="text-lg font-semibold">My Tasks</CardTitle>
-            <p className="text-sm text-gray-500 mt-1">
-              Web development assignments and progress
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">
-              {completedTasksCount}/{tasks.length} completed
-            </span>
-            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 transition-all duration-500"
-                style={{ width: `${taskProgress}%` }}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loadingTasks ? (
-            <div className="p-4 space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>No tasks assigned</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {tasks.map((task) => (
-                <div
-                  key={task.task_id}
-                  className="p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs font-medium text-gray-500">
-                          {task.task_id}
-                        </span>
-                        <span className="text-gray-300">•</span>
-                        <span className="text-xs text-gray-500">
-                          {task.projectName || "No project"}
-                        </span>
-                        {task.due_date && (
-                          <>
-                            <span className="text-gray-300">•</span>
-                            <span
-                              className={`text-xs ${
-                                isUrgent(task.due_date)
-                                  ? "text-red-600 font-medium"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              Due in {formatDueDate(task.due_date)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <p className="text-sm font-medium text-gray-900 mb-2">
-                        {task.title}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <Badge
-                        variant="outline"
-                        className={`w-20 justify-center text-center ${getPriorityColor(task.priority)}`}
-                      >
-                        {task.priority}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`w-24 justify-center text-center ${getStatusColor(task.status)}`}
-                      >
-                        {task.status}
-                      </Badge>
                     </div>
                   </div>
                 </div>
