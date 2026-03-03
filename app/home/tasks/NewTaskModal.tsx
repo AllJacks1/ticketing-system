@@ -158,9 +158,10 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
       return null;
     }
 
-    try {
-      setCreating(true);
+    setCreating(true);
+    const toastId = toast.loading("Creating task...");
 
+    try {
       // 1️⃣ Create main task
       const { data: task, error: taskError } = await supabase
         .from("tasks")
@@ -179,7 +180,9 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
         .single();
 
       if (taskError || !task) {
-        toast.error(taskError?.message || "Failed to create task");
+        toast.error(taskError?.message || "Failed to create task", {
+          id: toastId,
+        });
         return null;
       }
 
@@ -191,22 +194,18 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
           task_id: taskId,
           project_id: project,
         }),
-
         supabase.from("task_assignees").insert({
           task_id: taskId,
           user_id: assignee || null,
         }),
-
         supabase.from("task_companies").insert({
           task_id: taskId,
           company_id: 1,
         }),
-
         supabase.from("task_branches").insert({
           task_id: taskId,
           branch_id: 1,
         }),
-
         supabase.from("task_departments").insert({
           task_id: taskId,
           department_id: 1,
@@ -214,24 +213,80 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
       ];
 
       const results = await Promise.all(relations);
-
       const relationError = results.find((r) => r.error);
 
       if (relationError?.error) {
-        toast.error("Task created but relations failed.");
-        console.error(relationError.error);
-        return task;
+        console.error("Relation error:", relationError.error);
+        toast.error("Task created but some relations failed", { id: toastId });
       }
 
-      toast.success("Task created successfully 🎉");
+      // 3️⃣ Send notification if assignee exists
+      if (assignee) {
+        await sendTaskNotification(taskId, assignee, toastId);
+      }
 
+      toast.success("Task created successfully 🎉", { id: toastId });
       return task;
     } catch (err) {
-      console.error(err);
-      toast.error("Unexpected error while creating task");
+      console.error("Create task error:", err);
+      toast.error("Unexpected error while creating task", { id: toastId });
       return null;
     } finally {
       setCreating(false);
+    }
+  }
+
+  // Extracted notification helper
+  async function sendTaskNotification(
+    taskId: string,
+    assigneeId: string,
+    toastId: string | number,
+  ) {
+    const supabase = createClient();
+
+    try {
+      const { data: notification, error: notifError } = await supabase
+        .from("notifications")
+        .insert({
+          title: `Task #${taskId} Assigned to You`,
+          description: `
+The task "${title || "Untitled"}" has been assigned to you.
+
+• Task ID: ${taskId}
+• Priority: ${priority || "Not set"}
+• Due Date: ${dueDate ? new Date(dueDate).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : "Not set"}
+• Assigned At: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+${description ? `\nDescription: ${description.substring(0, 100)}${description.length > 100 ? "..." : ""}` : ""}
+        `.trim(),
+        })
+        .select("notification_id")
+        .single();
+
+      if (notifError || !notification) {
+        toast.error("Task created but notification failed to create", {
+          id: toastId,
+        });
+        return;
+      }
+
+      // Link notification to assignee
+      const { error: linkError } = await supabase
+        .from("user_notifications")
+        .insert({
+          notification_id: notification.notification_id,
+          user_id: assigneeId,
+        });
+
+      if (linkError) {
+        toast.error("Task created but notification delivery failed", {
+          id: toastId,
+        });
+      }
+    } catch (err) {
+      console.error("Notification error:", err);
+      toast.error("Task created but notification error occurred", {
+        id: toastId,
+      });
     }
   }
 

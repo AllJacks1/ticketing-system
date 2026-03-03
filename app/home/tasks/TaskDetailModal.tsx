@@ -66,16 +66,17 @@ export default function TaskDetailModal({
     if (!hasChanges) return;
 
     setIsSaving(true);
-    const toastId = toast.loading("Updating ticket status...");
+    const toastId = toast.loading("Updating task status...");
 
     try {
       const supabase = createClient();
 
       if (!task.task_id) {
-        throw new Error("Invalid ticket ID");
+        throw new Error("Invalid task ID");
       }
 
-      const { error } = await supabase
+      // 1️⃣ Update task and get author
+      const { data: taskData, error: updateError } = await supabase
         .from("tasks")
         .update({
           status: pendingStatus,
@@ -83,14 +84,53 @@ export default function TaskDetailModal({
             timeZone: "Asia/Manila",
           }),
         })
-        .eq("task_id", task.task_id);
+        .eq("task_id", task.task_id)
+        .select("author")
+        .single();
 
-      if (error) {
-        throw error;
+      if (updateError || !taskData) {
+        throw updateError || new Error("Failed to update task");
       }
 
-      onStatusChange?.(task.task_id, pendingStatus);
+      // 2️⃣ Create notification
+      const { data: notification, error: notifError } = await supabase
+        .from("notifications")
+        .insert({
+          title: `Task #${task.task_id} Moved to ${pendingStatus}`,
+          description: `
+The task "${task.title || "Untitled"}" has been updated.
 
+• Task ID: ${task.task_id}
+• Previous Status: ${task.status}
+• New Status: ${pendingStatus}
+• Updated At: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+        `.trim(),
+        })
+        .select("notification_id")
+        .single();
+
+      if (notifError || !notification) {
+        toast.error("Status updated but notification failed to create", {
+          id: toastId,
+        });
+      } else {
+        // 3️⃣ Link notification to author
+        const { error: linkError } = await supabase
+          .from("user_notifications")
+          .insert({
+            notification_id: notification.notification_id,
+            user_id: taskData.author,
+          });
+
+        if (linkError) {
+          toast.error("Status updated but notification delivery failed", {
+            id: toastId,
+          });
+        }
+      }
+
+      // 4️⃣ Success
+      onStatusChange?.(task.task_id, pendingStatus);
       toast.success("Status updated successfully", { id: toastId });
       setHasChanges(false);
     } catch (error: any) {
@@ -182,43 +222,43 @@ export default function TaskDetailModal({
           </div>
 
           {hasChanges && (
-                <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center gap-2 text-sm text-indigo-900">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                    <span>
-                      Change status to <strong>{pendingStatus}</strong>?
+            <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2 text-sm text-indigo-900">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                <span>
+                  Change status to <strong>{pendingStatus}</strong>?
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDiscardChanges}
+                  className="h-7 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApplyChanges}
+                  disabled={isSaving}
+                  className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {isSaving ? (
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving...
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDiscardChanges}
-                      className="h-7 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleApplyChanges}
-                      disabled={isSaving}
-                      className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      {isSaving ? (
-                        <span className="flex items-center gap-1">
-                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Saving...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          Apply
-                        </span>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      Apply
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <div className="space-y-1.5">

@@ -206,7 +206,7 @@ export default function TicketDetailModal({
   // Extracted notification logic
   const sendStatusNotification = async (
     toastId: string | number,
-    ticketId: string,
+    userId: string,
   ) => {
     const supabase = createClient();
 
@@ -232,13 +232,11 @@ The ticket "${ticket.title}" has been updated.
         return;
       }
 
-      console.log(notification.notification_id);
-      console.log(ticket.reporter);
       const { error: linkError } = await supabase
         .from("user_notifications")
         .insert({
           notification_id: notification.notification_id,
-          user_id: ticketId,
+          user_id: userId,
         });
 
       if (linkError) {
