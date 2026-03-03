@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutDashboard, TicketPlus, CheckSquare } from "lucide-react";
-import NewTicketModal from "@/app/home/tickets/NewTicketModal";
+import NewTicketModal from "@/app/home/admin/tickets/NewTicketModal";
 import NewTaskModal from "../tasks/NewTaskModal";
 import { createClient } from "@/supabase/client";
 import { Task, Ticket } from "@/lib/types";
@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   const stats: DashboardStats[] = [
     {
-      label: "Open Tickets",
+      label: "User Open Tickets",
       value: tickets.filter((t) => t.status === "Open").length,
       color: "blue",
       icon: TicketPlus,

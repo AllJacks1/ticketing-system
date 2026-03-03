@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/supabase/client";
-import TopNavigation from "@/app/home/NavigationBar";
+import TopNavigation from "@/app/home/admin/NavigationBar";
 import { LayoutDashboard, Ticket, CheckSquare } from "lucide-react";
 import { Notification } from "@/lib/types";
 

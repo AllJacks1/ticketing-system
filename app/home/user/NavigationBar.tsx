@@ -1,0 +1,485 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Bell,
+  LogOut,
+  Menu,
+  X,
+  ChevronDown,
+  Command,
+  LayoutDashboard,
+  Ticket,
+  CheckSquare,
+} from "lucide-react";
+import { NavLink, Notification, NavigationBarProps } from "@/lib/types";
+import NotificationsModal from "./dashboard/NotificationsModal";
+import { Skeleton } from "@/components/ui/skeleton";
+import ProfileModal from "./ProfileModal";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/supabase/client";
+import { toast } from "sonner";
+import { formatManilaTime, getInitials } from "@/lib/utils";
+import { UserProfile } from "@/lib/types";
+
+const defaultNavLinks: NavLink[] = [
+  { name: "Dashboard", href: "#", icon: LayoutDashboard, active: true },
+  { name: "Tickets", href: "#", icon: Ticket, active: false },
+  { name: "Tasks", href: "#", icon: CheckSquare, active: false },
+  { name: "Projects", href: "#", icon: LayoutDashboard, active: false },
+  { name: "Reports", href: "#", icon: LayoutDashboard, active: false },
+];
+
+const defaultNotifications: Notification[] = [
+  {
+    id: 1,
+    title: "New ticket assigned",
+    message: "TASK-006 has been assigned to you",
+    time: "2 min ago",
+    unread: true,
+  },
+  {
+    id: 2,
+    title: "Task completed",
+    message: "Mike Ross resolved #2041",
+    time: "1 hour ago",
+    unread: true,
+  },
+  {
+    id: 3,
+    title: "System update",
+    message: "Scheduled maintenance tonight",
+    time: "3 hours ago",
+    unread: false,
+  },
+];
+
+export function NavigationBar({
+  user = { name: "John Doe", role: "Product Manager", avatar: "JD" },
+  notifications: initialNotifications = defaultNotifications,
+  navLinks = defaultNavLinks,
+  onNavigate,
+  onMarkAsRead,
+  onMarkAllAsRead,
+}: NavigationBarProps & {
+  onMarkAsRead?: (id: string) => Promise<void>;
+  onMarkAllAsRead?: () => Promise<void>;
+}) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] =
+    useState<Notification[]>(initialNotifications);
+  const [cachedUser, setCachedUser] = useState<UserProfile | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  useEffect(() => {
+    setNotifications(initialNotifications);
+  }, [initialNotifications]);
+
+  useEffect(() => {
+    try {
+      const storedProfile = localStorage.getItem("userProfile");
+      if (storedProfile) {
+        const userData = JSON.parse(storedProfile);
+        setCachedUser(userData);
+      }
+    } catch (err) {
+      console.error("Error reading cached user:", err);
+      toast.error("Failed to load user profile");
+    }
+  }, []);
+
+  const handleNavClick = (href: string) => {
+    onNavigate?.(href);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.unread) return;
+
+    // Optimistic update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notification.id ? { ...n, unread: false } : n)),
+    );
+
+    try {
+      await onMarkAsRead?.(notification.id.toString());
+    } catch (err) {
+      // Revert on error
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, unread: true } : n,
+        ),
+      );
+      toast.error("Failed to mark as read");
+    }
+  };
+
+  const handleMarkAllRead = () => {
+    if (unreadCount === 0) return;
+    setShowConfirmDialog(true);
+  };
+
+  const confirmMarkAllRead = async () => {
+    setShowConfirmDialog(false);
+
+    const previousNotifications = notifications;
+
+    // Optimistic update
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+
+    try {
+      await onMarkAllAsRead?.();
+      toast.success("All notifications marked as read");
+    } catch (err) {
+      // Revert on error
+      setNotifications(previousNotifications);
+      toast.error("Failed to mark all as read");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const toastId = toast.loading("Logging out...");
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        toast.error(`Logout failed: ${error.message}`, { id: toastId });
+        return;
+      }
+
+      localStorage.clear();
+      sessionStorage.clear();
+
+      document.cookie.split(";").forEach((cookie) => {
+        const name = cookie.split("=")[0].trim();
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      });
+
+      toast.success("Logged out successfully!", { id: toastId });
+      router.replace("/");
+    } catch (err) {
+      console.error(err);
+      toast.error("An unexpected error occurred during logout");
+    }
+  };
+
+  const formatNotificationMessage = (message: string) => {
+    if (!message.includes("•") && !message.includes("\n")) {
+      return <span>{message}</span>;
+    }
+
+    const lines = message.split("\n").filter((line) => line.trim());
+
+    return (
+      <div className="space-y-1">
+        <p className="font-medium text-gray-900">{lines[0]}</p>
+        {lines.slice(1).map((line, index) => (
+          <div key={index} className="flex items-start gap-2 text-gray-600">
+            <span className="text-indigo-500 mt-1">•</span>
+            <span>{line.replace("•", "").trim()}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo & Brand */}
+          <div
+            className="flex items-center gap-8 hover:cursor-pointer"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <Command className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900 tracking-tight">
+                IssueLane
+              </span>
+            </div>
+          </div>
+
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-2">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleNavClick(link.href);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    link.active
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <link.icon className="w-4 h-4" />
+                  {link.name}
+                </a>
+              ))}
+            </div>
+
+            {/* Notifications Dropdown */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-gray-600 hover:text-gray-900"
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+                )}
+              </Button>
+
+              {/* Notifications Panel */}
+              {isNotificationsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsNotificationsOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={handleMarkAllRead}
+                        >
+                          Mark all read
+                        </Button>
+                      )}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No notifications
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={() =>
+                              handleNotificationClick(notification)
+                            }
+                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
+                              notification.unread ? "bg-indigo-50/30" : ""
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-2 h-2 mt-2 rounded-full shrink-0 ${
+                                  notification.unread
+                                    ? "bg-indigo-600"
+                                    : "bg-gray-300"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {notification.title}
+                                </p>
+                                <div className="text-sm text-gray-600 mt-0.5">
+                                  {formatNotificationMessage(
+                                    notification.message,
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {formatManilaTime(notification.time)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="p-3 border-t border-gray-100 bg-gray-50">
+                      <NotificationsModal />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  {cachedUser ? (
+                    getInitials(
+                      cachedUser.first_name ?? "",
+                      cachedUser.last_name ?? "",
+                    )
+                  ) : (
+                    <div></div>
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <div className="text-sm font-medium text-gray-900">
+                    {cachedUser ? (
+                      `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                    ) : (
+                      <Skeleton className="w-20 h-4" />
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {cachedUser?.assignment?.role?.name ||
+                      (cachedUser === null ? (
+                        <Skeleton className="w-16 h-3" />
+                      ) : (
+                        user.role
+                      ))}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                    isProfileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Profile Menu */}
+              {isProfileOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsProfileOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-1">
+                    <div className="px-4 py-3 border-b border-gray-100 md:hidden">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-gray-500">{user.role}</p>
+                    </div>
+                    <ProfileModal
+                      user={{
+                        name: cachedUser
+                          ? `${cachedUser.first_name ?? ""} ${cachedUser.last_name ?? ""}`.trim()
+                          : user.name,
+                        email: cachedUser?.email || "",
+                        role: cachedUser?.assignment?.role?.name || user.role,
+                        department:
+                          cachedUser?.assignment?.designation?.name ||
+                          "Unknown",
+                        avatar: cachedUser
+                          ? getInitials(
+                              cachedUser.first_name ?? "",
+                              cachedUser.last_name ?? "",
+                            )
+                          : user.avatar,
+                      }}
+                    />
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden text-gray-600 hover:text-gray-900"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-gray-200 bg-white">
+          <div className="px-4 py-3 space-y-1">
+            {navLinks.map((link) => (
+              <a
+                key={link.name}
+                href={link.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavClick(link.href);
+                }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+                  link.active
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <link.icon className="w-5 h-5" />
+                {link.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Mark all as read?
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to mark all {unreadCount} notifications as
+              read?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfirmDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={confirmMarkAllRead}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}
+
+export default NavigationBar;
