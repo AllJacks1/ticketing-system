@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,19 +9,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Ticket,
   Calendar,
-  User,
   Clock,
   MessageSquare,
   AlertCircle,
@@ -31,50 +21,91 @@ import {
   ExternalLink,
   Image as ImageIcon,
   FileText,
-  Check,
-  ArrowRight,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  ArrowUp,
+  ArrowDown,
+  Minus,
 } from "lucide-react";
 import { TicketDetailModalProps } from "@/lib/types";
-import { createClient } from "@/supabase/client";
 import { formatManilaTime } from "@/lib/utils";
-import { toast } from "sonner";
 
 interface Attachment {
   url: string;
   type: string;
 }
 
+// Status helpers
+const getStatusIcon = (status: string) => {
+  const icons: Record<string, React.ReactNode> = {
+    Open: <AlertCircle className="w-5 h-5" />,
+    "In Progress": <Loader2 className="w-5 h-5 animate-spin" />,
+    Waiting: <Clock className="w-5 h-5" />,
+    Resolved: <CheckCircle2 className="w-5 h-5" />,
+    Closed: <XCircle className="w-5 h-5" />,
+  };
+  return icons[status] || <AlertCircle className="w-5 h-5" />;
+};
+
+const getStatusDescription = (status: string) => {
+  const descriptions: Record<string, string> = {
+    Open: "Ticket is active and awaiting assignment",
+    "In Progress": "Currently being worked on by assignee",
+    Waiting: "Pending response from reporter or external party",
+    Resolved: "Solution provided, awaiting confirmation",
+    Closed: "Ticket completed and archived",
+  };
+  return descriptions[status] || "Status unknown";
+};
+
+// Priority helpers
+const getPriorityIcon = (priority: string) => {
+  const icons: Record<string, React.ReactNode> = {
+    Urgent: <AlertTriangle className="w-5 h-5" />,
+    High: <ArrowUp className="w-5 h-5" />,
+    Medium: <Minus className="w-5 h-5" />,
+    Low: <ArrowDown className="w-5 h-5" />,
+  };
+  return icons[priority] || <Minus className="w-5 h-5" />;
+};
+
+const getPriorityLevel = (priority: string) => {
+  const levels: Record<string, number> = {
+    Low: 1,
+    Medium: 2,
+    High: 3,
+    Urgent: 4,
+  };
+  return levels[priority] || 1;
+};
+
+const getPriorityBarColor = (priority: string) => {
+  const colors: Record<string, string> = {
+    Low: "bg-gray-400",
+    Medium: "bg-blue-500",
+    High: "bg-orange-500",
+    Urgent: "bg-red-600",
+  };
+  return colors[priority] || "bg-gray-400";
+};
+
+const getPriorityDescription = (priority: string) => {
+  const descriptions: Record<string, string> = {
+    Low: "Minimal impact, can be scheduled",
+    Medium: "Moderate impact, standard queue",
+    High: "Significant impact, expedited handling",
+    Urgent: "Critical impact, immediate attention required",
+  };
+  return descriptions[priority] || "Priority not set";
+};
+
 export default function TicketDetailModal({
   children,
   ticket,
-  onStatusChange,
-}: TicketDetailModalProps) {
-  const [comment, setComment] = useState("");
-  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(
-    null,
-  );
-
-  // Track pending status change
-  const [pendingStatus, setPendingStatus] = useState(ticket.status);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Auto-promotion from Waiting to Open
-  const [showAutoPromote, setShowAutoPromote] = useState(false);
-
-  // Reset and check for auto-promotion when dialog opens
-  useEffect(() => {
-    setPendingStatus(ticket.status);
-    setHasChanges(false);
-    setShowAutoPromote(false);
-
-    // If ticket is Waiting, prompt for auto-promotion to Open
-    if (ticket.status === "Waiting") {
-      setShowAutoPromote(true);
-      setPendingStatus("Open");
-      setHasChanges(true);
-    }
-  }, [ticket.status, ticket.id]);
+}: Omit<TicketDetailModalProps, "onStatusChange">) {
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -97,26 +128,16 @@ export default function TicketDetailModal({
     return colors[status] || "bg-gray-100 text-gray-700";
   };
 
-  const statuses = ["Waiting", "Open", "Resolved", "Closed"];
-
   const details = [
     {
       avatar: ticket.assignee?.avatar,
       label: "Assignee",
-      value: (
-        <span className="text-sm font-medium text-gray-900">
-          {ticket.assignee?.name}
-        </span>
-      ),
+      value: ticket.assignee?.name || "Unassigned",
     },
     {
       avatar: ticket.reporter?.avatar,
       label: "Reporter",
-      value: (
-        <span className="text-sm font-medium text-gray-900">
-          {ticket.reporter?.name}
-        </span>
-      ),
+      value: ticket.reporter?.name || "Unknown",
     },
     {
       icon: Calendar,
@@ -128,187 +149,17 @@ export default function TicketDetailModal({
   const hasAttachments = ticket.attachments && ticket.attachments.length > 0;
   const hasComments = ticket.comments && ticket.comments.length > 0;
 
-  const isImage = (type: string) => {
-    return type.startsWith("image/");
-  };
+  const isImage = (type: string) => type.startsWith("image/");
 
   const getFileName = (url: string) => {
     try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      return pathname.split("/").pop() || "Attachment";
+      return new URL(url).pathname.split("/").pop() || "Attachment";
     } catch {
       return "Attachment";
     }
   };
 
-  const getFileIcon = (type: string) => {
-    if (isImage(type)) return ImageIcon;
-    return FileText;
-  };
-
-  const handleStatusChange = (value: string) => {
-    setPendingStatus(value);
-    setHasChanges(value !== ticket.status);
-    setShowAutoPromote(false);
-  };
-
-  const handleApplyChanges = async () => {
-    if (!hasChanges) return;
-
-    setIsSaving(true);
-    const toastId = toast.loading("Updating ticket status...");
-
-    try {
-      const supabase = createClient();
-
-      if (!ticket.id) {
-        throw new Error("Invalid ticket ID");
-      }
-
-      // Update ticket status
-      const { data: ticketData, error: updateError } = await supabase
-        .from("tickets")
-        .update({
-          status: pendingStatus,
-          updated_at: new Date().toLocaleString("en-PH", {
-            timeZone: "Asia/Manila",
-          }),
-        })
-        .eq("ticket_id", ticket.id)
-        .select("assigned_by");
-
-      if (updateError) throw updateError;
-
-      // Send notification to reporter if exists
-      if (ticket.reporter) {
-        await sendStatusNotification(toastId, ticketData[0].assigned_by);
-      }
-
-      // Success cleanup
-      onStatusChange?.(ticket.id, pendingStatus);
-      toast.success("Status updated successfully", { id: toastId });
-
-      setHasChanges(false);
-      setShowAutoPromote(false);
-    } catch (error: any) {
-      console.error("Update error:", error);
-      toast.error(error.message || "Failed to update status", { id: toastId });
-
-      // Revert to original state
-      setPendingStatus(ticket.status);
-      setShowAutoPromote(ticket.status === "Waiting");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Extracted notification logic
-  const sendStatusNotification = async (
-    toastId: string | number,
-    userId: string,
-  ) => {
-    const supabase = createClient();
-
-    try {
-      const { data: notification, error: notifError } = await supabase
-        .from("notifications")
-        .insert({
-          title: `Ticket #${ticket.id} Moved to ${pendingStatus}`,
-          description: `
-The ticket "${ticket.title}" has been updated.
-• Previous Status: ${ticket.status}
-• New Status: ${pendingStatus}
-• Updated At: ${new Date().toLocaleString()}
-`,
-        })
-        .select("notification_id")
-        .single();
-
-      if (notifError || !notification) {
-        toast.error("Status updated but notification failed to create", {
-          id: toastId,
-        });
-        return;
-      }
-
-      const { error: linkError } = await supabase
-        .from("user_notifications")
-        .insert({
-          notification_id: notification.notification_id,
-          user_id: userId,
-        });
-
-      if (linkError) {
-        toast.error("Status updated but notification delivery failed", {
-          id: toastId,
-        });
-      }
-    } catch (err) {
-      toast.error("Status updated but notification error occurred", {
-        id: toastId,
-      });
-    }
-  };
-
-  const handlePostComment = async () => {
-    if (!comment.trim()) return;
-
-    setIsSaving(true);
-    const toastId = toast.loading("Posting comment...");
-
-    try {
-      const supabase = createClient();
-
-      if (!ticket.id) {
-        throw new Error("Invalid ticket ID");
-      }
-
-      const updatedComments = ticket.comments
-        ? [...ticket.comments, comment.trim()]
-        : [comment.trim()];
-
-      const { error } = await supabase
-        .from("tickets")
-        .update({
-          remarks: updatedComments,
-          updated: new Date().toLocaleString("en-PH", {
-            timeZone: "Asia/Manila",
-          }),
-        })
-        .eq("ticket_id", ticket.id);
-
-      if (error) {
-        throw error;
-      }
-
-      ticket.comments = updatedComments;
-      setComment("");
-
-      toast.success("Comment posted", { id: toastId });
-    } catch (error: any) {
-      console.error("Comment error:", error);
-      toast.error(error.message || "Failed to post comment", { id: toastId });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDiscardChanges = () => {
-    setPendingStatus(ticket.status);
-    setHasChanges(false);
-    setShowAutoPromote(false);
-  };
-
-  const handleConfirmAutoPromote = () => {
-    handleApplyChanges();
-  };
-
-  const handleRejectAutoPromote = () => {
-    setPendingStatus("Waiting");
-    setHasChanges(false);
-    setShowAutoPromote(false);
-  };
+  const getFileIcon = (type: string) => (isImage(type) ? ImageIcon : FileText);
 
   return (
     <>
@@ -316,7 +167,7 @@ The ticket "${ticket.title}" has been updated.
         <DialogTrigger asChild>{children}</DialogTrigger>
 
         <DialogContent className="max-w-lg p-0 overflow-hidden max-h-[90vh]">
-          {/* Header - Fixed */}
+          {/* Header */}
           <div className="p-6 border-b shrink-0">
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
               <span className="font-medium text-gray-900">{ticket.id}</span>
@@ -334,132 +185,49 @@ The ticket "${ticket.title}" has been updated.
           {/* Scrollable Content */}
           <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-80px)]">
             {/* Status & Priority */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Select
-                  value={pendingStatus}
-                  onValueChange={handleStatusChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses
-                      .filter((s) => {
-                        const currentIndex = statuses.indexOf(ticket.status);
-                        const optionIndex = statuses.indexOf(s);
-                        return optionIndex >= currentIndex;
-                      })
-                      .map((s) => (
-                        <SelectItem key={s} value={s}>
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(s)}`}
-                          >
-                            {s}
-                          </span>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <Badge
-                  variant="outline"
-                  className={`w-24 justify-center shrink-0 ${getPriorityColor(ticket.priority)}`}
-                >
-                  {ticket.priority}
-                </Badge>
+            <div className="flex flex-col gap-3">
+              {/* Status with icon and description */}
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${getStatusColor(ticket.status)}`}>
+                  {getStatusIcon(ticket.status)}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                  <p className="text-sm font-semibold text-gray-900">{ticket.status}</p>
+                  <p className="text-xs text-gray-500">{getStatusDescription(ticket.status)}</p>
+                </div>
               </div>
 
-              {/* Auto-promote Banner */}
-              {showAutoPromote && (
-                <div className="flex flex-col gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center gap-2 text-sm text-blue-900">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <span>
-                      This ticket is <strong>Waiting</strong>. Start working on
-                      it?
-                    </span>
-                  </div>
+              {/* Priority with visual indicator */}
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${getPriorityColor(ticket.priority)}`}>
+                  {getPriorityIcon(ticket.priority)}
+                </div>
+                <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs text-blue-700">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
-                        Waiting
-                      </span>
-                      <ArrowRight className="w-3 h-3" />
-                      <span className="px-2 py-1 bg-blue-100 rounded text-blue-700 font-medium">
-                        Open
-                      </span>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">Priority</p>
+                      <p className="text-sm font-semibold text-gray-900">{ticket.priority}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRejectAutoPromote}
-                        className="h-7 text-blue-700 hover:text-blue-900 hover:bg-blue-100"
-                      >
-                        Keep Waiting
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleConfirmAutoPromote}
-                        disabled={isSaving}
-                        className="h-7 bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {isSaving ? (
-                          <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Starting...
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" />
-                            Start Ticket
-                          </span>
-                        )}
-                      </Button>
+                    {/* Priority level indicator */}
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((level) => (
+                        <div
+                          key={level}
+                          className={`w-2 h-6 rounded-full ${
+                            level <= getPriorityLevel(ticket.priority)
+                              ? getPriorityBarColor(ticket.priority)
+                              : "bg-gray-200"
+                          }`}
+                        />
+                      ))}
                     </div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {getPriorityDescription(ticket.priority)}
+                  </p>
                 </div>
-              )}
-
-              {/* Manual Apply Changes Banner */}
-              {hasChanges && !showAutoPromote && (
-                <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center gap-2 text-sm text-indigo-900">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                    <span>
-                      Change status to <strong>{pendingStatus}</strong>?
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDiscardChanges}
-                      className="h-7 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleApplyChanges}
-                      disabled={isSaving}
-                      className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      {isSaving ? (
-                        <span className="flex items-center gap-1">
-                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Saving...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          Apply
-                        </span>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Description */}
@@ -473,11 +241,11 @@ The ticket "${ticket.title}" has been updated.
               </p>
             </div>
 
-            {/* Due Date Banner */}
+            {/* Due Date */}
             {ticket.dueDate && (
               <div
                 className={`flex items-center gap-2 p-3 rounded-lg ${
-                  ticket.dueDate === "Today" || ticket.dueDate === "Tomorrow"
+                  ["Today", "Tomorrow"].includes(ticket.dueDate)
                     ? "bg-red-50 text-red-700"
                     : "bg-amber-50 text-amber-700"
                 }`}
@@ -489,7 +257,7 @@ The ticket "${ticket.title}" has been updated.
               </div>
             )}
 
-            {/* Attachment Section */}
+            {/* Attachments */}
             {hasAttachments && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
@@ -503,140 +271,101 @@ The ticket "${ticket.title}" has been updated.
                     const isImageFile = isImage(file.type);
 
                     return (
-                      <button
+                      <div
                         key={index}
-                        onClick={() =>
-                          isImageFile && setPreviewAttachment(file)
-                        }
-                        className={`flex items-center gap-3 p-3 w-full bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group text-left ${
-                          isImageFile ? "cursor-pointer" : "cursor-default"
-                        }`}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 group"
                       >
-                        <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow transition-shadow shrink-0">
+                        <div className="p-2 bg-white rounded-md shadow-sm shrink-0">
                           <FileIcon className="w-4 h-4 text-indigo-600" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {getFileName(file.url)}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            {isImageFile ? "Click to preview" : file.type}
-                          </p>
+                          <p className="text-xs text-gray-500">{file.type}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           {isImageFile && (
-                            <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setPreviewAttachment(file)}
+                            >
+                              <ExternalLink className="w-4 h-4 text-gray-600" />
+                            </Button>
                           )}
                           <a
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
-                            onClick={(e) => e.stopPropagation()}
                             className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                            title="Download"
                           >
                             <Download className="w-4 h-4 text-gray-600" />
                           </a>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
               </div>
             )}
 
-            {/* Details Grid - 3 columns */}
+            {/* Details Grid */}
             <div className="grid grid-cols-3 gap-3">
               {details.map((item) => (
                 <div
                   key={item.label}
                   className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg"
                 >
-                  <div>
-                    {item.avatar ? (
-                      <div className="shrink-0 p-1.5">
-                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                          {item.avatar}
-                        </div>
-                      </div>
-                    ) : item.icon ? (
-                      <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
-                        <item.icon className="w-6 h-6 text-gray-400" />
-                      </div>
-                    ) : null}
-                  </div>
+                  {item.avatar ? (
+                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium mb-2">
+                      {item.avatar}
+                    </div>
+                  ) : item.icon ? (
+                    <div className="p-1.5 bg-white rounded-md shadow-sm mb-2">
+                      <item.icon className="w-6 h-6 text-gray-400" />
+                    </div>
+                  ) : null}
                   <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
-                  <div className="text-sm font-medium text-gray-900 w-full truncate">
+                  <p className="text-sm font-medium text-gray-900 w-full truncate">
                     {item.value}
-                  </div>
+                  </p>
                 </div>
               ))}
             </div>
 
-            {/* Comments Section */}
+            {/* Comments */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
                 Comments {hasComments && `(${ticket.comments.length})`}
               </h4>
 
-              {/* Comments List */}
-              {hasComments && (
+              {hasComments ? (
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {ticket.comments.map((commentText: string, index: number) => (
+                  {ticket.comments.map((comment: string, index: number) => (
                     <div
                       key={index}
                       className="p-3 bg-gray-50 rounded-lg border border-gray-100"
                     >
                       <p className="text-sm text-gray-700 break-words">
-                        {commentText}
+                        {comment}
                       </p>
                       <p className="text-xs text-gray-400 mt-1">#{index + 1}</p>
                     </div>
                   ))}
                 </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic">No comments yet.</p>
               )}
-
-              {!hasComments && (
-                <p className="text-sm text-gray-400 italic">
-                  No comments yet. Add one below.
-                </p>
-              )}
-
-              {/* Add Comment */}
-              <div className="space-y-2 pt-2 border-t">
-                <Textarea
-                  placeholder="Add a comment..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={handlePostComment}
-                    disabled={!comment.trim() || isSaving}
-                    className="bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    {isSaving ? (
-                      <span className="flex items-center gap-1">
-                        <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Posting...
-                      </span>
-                    ) : (
-                      "Post Comment"
-                    )}
-                  </Button>
-                </div>
-              </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Image Preview Dialog */}
+      {/* Image Preview */}
       {previewAttachment && (
         <Dialog
           open={!!previewAttachment}

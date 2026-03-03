@@ -7,15 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutDashboard, TicketPlus, CheckSquare } from "lucide-react";
 import NewTicketModal from "@/app/home/admin/tickets/NewTicketModal";
-import NewTaskModal from "../tasks/NewTaskModal";
 import { createClient } from "@/supabase/client";
 import { Task, Ticket } from "@/lib/types";
-import {
-  formatDueDate,
-  formatManilaTime,
-  getInitials,
-  isUrgent,
-} from "@/lib/utils";
+import { formatManilaTime, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface DashboardStats {
