@@ -170,7 +170,7 @@ export default function NewTaskModal({ onSubmit }: NewTaskModalProps) {
           priority,
           author: userId,
           due_date: dueDate || null,
-          status: "To do",
+          status: "To Do",
           updated: new Date().toLocaleString("en-PH", {
             timeZone: "Asia/Manila",
           }),

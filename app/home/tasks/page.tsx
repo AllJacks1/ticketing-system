@@ -33,6 +33,7 @@ import TaskDetailModal from "./TaskDetailModal";
 import { createClient } from "@/supabase/client";
 import { Task } from "@/lib/types";
 import { toast } from "sonner";
+import { formatManilaTime, getInitials } from "@/lib/utils";
 
 export default function TasksPage() {
   const [fetchingTasks, setFetchingTasks] = useState(false);
@@ -130,10 +131,16 @@ export default function TasksPage() {
             author: {
               first_name: author?.first_name || "",
               last_name: author?.last_name || "",
+              avatar: getInitials(
+                `${author?.first_name || "" + author?.last_name || ""}`,
+              ),
             },
             assignee: {
               first_name: user?.first_name || "",
               last_name: user?.last_name || "",
+              avatar: getInitials(
+                `${user?.first_name || "" + user?.last_name || ""}`,
+              ),
             },
           };
         });
@@ -376,7 +383,7 @@ export default function TasksPage() {
                         {/* Avatar */}
                         <div className="shrink-0">
                           <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                            {task.assignee.avatar}
+                            {task.author.avatar}
                           </div>
                         </div>
 
@@ -395,7 +402,7 @@ export default function TasksPage() {
                             <span className="text-gray-300">•</span>
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {task.created_at}
+                              {formatManilaTime(task.created_at)}
                             </span>
                             {task.due_date && task.due_date !== "Done" && (
                               <>
@@ -409,7 +416,7 @@ export default function TasksPage() {
                                   }`}
                                 >
                                   <Clock className="w-3 h-3" />
-                                  Due in {task.due_date}
+                                  Due: {formatManilaTime(task.due_date)}
                                 </span>
                               </>
                             )}
