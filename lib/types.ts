@@ -175,3 +175,12 @@ export interface Project {
   project_id: string;
   name: string;
 }
+
+type StatColor = "blue" | "amber" | "green" | "red" | "purple";
+
+export interface DashboardStats {
+  label: string;
+  value: number;
+  color: StatColor;
+  icon: React.ComponentType<{ className?: string }>;
+}

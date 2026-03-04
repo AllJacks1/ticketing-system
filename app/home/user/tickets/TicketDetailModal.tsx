@@ -104,7 +104,8 @@ const getPriorityDescription = (priority: string) => {
 export default function TicketDetailModal({
   children,
   ticket,
-}: Omit<TicketDetailModalProps, "onStatusChange">) {
+  onStatusChange,
+}: TicketDetailModalProps) {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
 
   const getPriorityColor = (priority: string) => {

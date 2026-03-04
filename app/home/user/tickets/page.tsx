@@ -45,6 +45,14 @@ export default function TicketsPage() {
 
   // Fetch tickets from Supabase
   const fetchTickets = async () => {
+    const storedUser = localStorage.getItem("userProfile");
+    if (!storedUser) {
+      toast.error("User profile not found");
+      setLoading(false);
+      return;
+    }
+    const { user_id } = JSON.parse(storedUser);
+
     try {
       setLoading(true);
       const supabase = createClient();
@@ -67,6 +75,7 @@ export default function TicketsPage() {
         assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
       `,
         )
+        .eq("assigned_by", user_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -191,22 +200,6 @@ export default function TicketsPage() {
     setCurrentPage(1);
   };
 
-  const stats = [
-    { label: "Total Tickets", value: tickets.length, icon: AlertCircle },
-    {
-      label: "Open Tickets",
-      value: tickets.filter((t) => t.status === "Open").length,
-      icon: Clock,
-    },
-    {
-      label: "Resolved Tickets",
-      value: tickets.filter(
-        (t) => t.status === "Resolved" || t.status === "Closed",
-      ).length,
-      icon: CheckCircle2,
-    },
-  ];
-
   const handleStatusChange = (ticketId: string, newStatus: string) => {
     setTickets((prev) =>
       prev.map((ticket) =>
@@ -236,25 +229,6 @@ export default function TicketsPage() {
           </p>
         </div>
         <NewTicketModal onSubmit={handleTicketCreated} />
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <stat.icon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {stat.value}
-                </p>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
       </div>
 
       {/* Filters */}

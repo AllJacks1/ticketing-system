@@ -1,5 +1,5 @@
 "use client";
-import Dashboard from "./dashboard/Dashboard";
+import Dashboard from "@/app/home/user/dashboard/Dashboard";
 
 function HomePage() {
   return (
