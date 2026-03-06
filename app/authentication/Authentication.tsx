@@ -86,7 +86,14 @@ function Authentication() {
       toast.success("Login complete! Redirecting...", { id: toastId });
 
       // 6️⃣ Redirect
-      router.push("/home");
+      const designationId = assignment?.designation_id;
+      const isAdmin = designationId === 1 || designationId === "1";
+
+      // Redirect based on role
+      const redirectPath = isAdmin ? "/home/admin" : "/home/user";
+
+      // Use replace instead of push to prevent back-button issues
+      router.replace(redirectPath);
     } catch (err) {
       console.error(err);
       toast.error("An unexpected error occurred during login");

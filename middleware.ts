@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
 
   // 👤 Get internal user record
   DEBUG && console.log("🔍 Looking up user with auth_id:", user?.id);
-  
+
   const { data: dbUser, error: userError } = await supabase
     .from("users")
     .select("user_id")
@@ -72,7 +72,7 @@ export async function middleware(request: NextRequest) {
   const { data: assignment, error: roleError } = await supabase
     .from("user_assignments")
     .select("role_id")
-    .eq("user_id", dbUser.user_id)  // ⚠️ Check this - should it be user_id?
+    .eq("user_id", dbUser.user_id)
     .single();
 
   DEBUG && console.log("🎖 Assignment:", assignment || "Not found");
@@ -84,10 +84,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // 🔐 Admin role check
-  const ADMIN_ROLE_ID = 1;
-  const isAdmin = assignment.role_id === ADMIN_ROLE_ID;
+  const ADMIN_ROLE_IDs = [1, 2];
+  const isAdmin = ADMIN_ROLE_IDs.includes(assignment.role_id);
 
-  DEBUG && console.log(`🔐 Role Check: ${assignment.role_id} === ${ADMIN_ROLE_ID} ? ${isAdmin}`);
+  DEBUG && console.log(`🔐 Role Check: ${assignment.role_id} === ${ADMIN_ROLE_IDs} ? ${isAdmin}`);
 
   if (!isAdmin) {
     DEBUG && console.log("🚫 Redirect: Not admin");
