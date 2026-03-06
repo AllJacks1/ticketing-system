@@ -344,7 +344,6 @@ export default function DashboardPage() {
             ),
             users (first_name, last_name)
           `)
-          .eq("user_id", userId);
 
         if (error) throw error;
 
