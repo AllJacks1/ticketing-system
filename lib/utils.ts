@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { StatColor, Task } from "./types";
+import { StatColor, Task, Ticket } from "./types";
 import { LayoutDashboard, TicketPlus, CheckSquare, Archive } from "lucide-react";
 import { toast } from "sonner";
 
@@ -122,6 +122,22 @@ export const formatTaskAssignee = (item: any): Task[] => {
     };
   });
 };
+
+export const formatTicket = (ticket: any): Ticket => ({
+    id: ticket.ticket_id,
+    title: ticket.title,
+    description: ticket.description,
+    status: ticket.status,
+    priority: ticket.priority,
+    createdAt: ticket.created_at,
+    updatedAt: ticket.updated_at,
+    dueDate: ticket.deadline ?? undefined,
+    tags: [],
+    comments: normalizeToArray(ticket.remarks),
+    attachments: normalizeFiles(ticket.files),
+    assignee: formatUser(ticket.assigned_to_user),
+    reporter: formatUser(ticket.assigned_by_user),
+  });
 
 export const TICKET_STATUS_CONFIG: Record<
   string,

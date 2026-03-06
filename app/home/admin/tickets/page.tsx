@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,112 +30,100 @@ import TicketDetailModal from "./TicketDetailModal";
 import { Ticket } from "@/lib/types";
 import { createClient } from "@/supabase/client";
 import { toast } from "sonner";
-import { formatManilaTime, getInitials } from "@/lib/utils";
+import {
+  formatManilaTime,
+  formatTicket,
+  getInitials,
+  getUserFromStorage,
+} from "@/lib/utils";
 
 export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [roleId, setRoleId] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  // Fetch tickets from Supabase
-  const fetchTickets = async () => {
-    try {
-      setLoading(true);
-      const supabase = createClient();
+  useEffect(() => {
+    const user = getUserFromStorage();
+    if (user) {
+      setUserId(user.userId);
+      setRoleId(user.roleId);
+    }
+  }, []);
 
-      const { data, error } = await supabase
+  const isRoleOne = false;
+
+  // Fetch tickets from Supabase
+  const fetchTickets = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingTickets(true);
+    const supabase = createClient();
+
+    try {
+      let query = supabase
         .from("tickets")
         .select(
           `
-        ticket_id,
-        title,
-        description,
-        status,
-        priority,
-        deadline,
-        created_at,
-        updated_at,
-        remarks,
-        files(type, url),
-        assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
-        assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
-      `,
+            ticket_id,
+            title,
+            description,
+            status,
+            priority,
+            deadline,
+            created_at,
+            updated_at,
+            remarks,
+            files(type, url),
+            assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
+            assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
+          `,
         )
         .order("created_at", { ascending: false });
 
+      // Role 1: Only see tickets assigned TO them OR created BY them
+      if (isRoleOne) {
+        query = query.or(`assigned_to.eq.${userId},assigned_by.eq.${userId}`);
+      }
+
+      const { data, error } = await query.limit(5);
+
       if (error) throw error;
 
-      const tickets: Ticket[] = data.map((ticket: any) => ({
-        id: ticket.ticket_id,
-        title: ticket.title,
-        description: ticket.description,
-        status: ticket.status,
-        priority: ticket.priority,
-        createdAt: ticket.created_at,
-        updatedAt: ticket.updated_at,
-        dueDate: ticket.deadline || undefined,
-        tags: [],
-        comments: ticket.remarks
-          ? Array.isArray(ticket.remarks)
-            ? ticket.remarks
-            : [ticket.remarks]
-          : [],
+      // Fetch counts for stats
+      let countQuery = supabase
+        .from("tickets")
+        .select("status", { count: "exact" });
 
-        // ✅ Correct mapping of attachments
-        attachments: ticket.files
-          ? Array.isArray(ticket.files)
-            ? ticket.files.map((f: any) => ({
-                type: f.type,
-                url: f.url,
-              }))
-            : [{ type: ticket.files.type, url: ticket.files.url }]
-          : [],
+      if (isRoleOne) {
+        countQuery = countQuery.or(
+          `assigned_to.eq.${userId},assigned_by.eq.${userId}`,
+        );
+      }
 
-        assignee: ticket.assigned_to_user
-          ? {
-              name:
-                ticket.assigned_to_user.first_name +
-                " " +
-                ticket.assigned_to_user.last_name,
-              avatar: getInitials(
-                ticket.assigned_to_user.first_name,
-                ticket.assigned_to_user.last_name,
-              ),
-            }
-          : null,
-
-        reporter: ticket.assigned_by_user
-          ? {
-              name:
-                ticket.assigned_by_user.first_name +
-                " " +
-                ticket.assigned_by_user.last_name,
-              avatar: getInitials(
-                ticket.assigned_by_user.first_name,
-                ticket.assigned_by_user.last_name,
-              ),
-            }
-          : null,
-      }));
-      setTickets(tickets);
+      setTickets((data || []).map(formatTicket));
     } catch (err) {
       console.error("Error fetching tickets:", err);
       toast.error("Failed to load tickets");
     } finally {
-      setLoading(false);
+      setLoadingTickets(false);
     }
-  };
+  }, [userId, isRoleOne]);
 
-  // Load tickets on mount
   useEffect(() => {
-    fetchTickets();
-  }, []);
+    if (!userId) return;
+
+    Promise.all([fetchTickets()]).catch(() => {
+      toast.error("Failed to load dashboard data");
+    });
+  }, [userId, fetchTickets]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -324,7 +312,7 @@ export default function TicketsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
+          {loadingTickets ? (
             <div className="p-12 flex flex-col items-center justify-center text-gray-500">
               <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
               <p className="text-sm">Loading tickets...</p>

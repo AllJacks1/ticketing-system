@@ -14,6 +14,7 @@ import {
   formatDueDate,
   formatManilaTime,
   formatTaskAssignee,
+  formatTicket,
   formatUser,
   getInitials,
   getUserFromStorage,
@@ -75,23 +76,6 @@ export default function DashboardPage() {
       icon: CheckSquare,
     },
   ];
-
-  // Format ticket data (reusable)
-  const formatTicket = (ticket: any): Ticket => ({
-    id: ticket.ticket_id,
-    title: ticket.title,
-    description: ticket.description,
-    status: ticket.status,
-    priority: ticket.priority,
-    createdAt: ticket.created_at,
-    updatedAt: ticket.updated_at,
-    dueDate: ticket.deadline ?? undefined,
-    tags: [],
-    comments: normalizeToArray(ticket.remarks),
-    attachments: normalizeFiles(ticket.files),
-    assignee: formatUser(ticket.assigned_to_user),
-    reporter: formatUser(ticket.assigned_by_user),
-  });
 
   // Fetch tickets with role-based filtering
   const fetchTickets = useCallback(async () => {
