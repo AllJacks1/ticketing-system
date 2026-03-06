@@ -25,48 +25,139 @@ interface DashboardStats {
   icon: React.ElementType;
 }
 
+// Helper to safely parse user from localStorage
+const getUserFromStorage = () => {
+  const storedUser = localStorage.getItem("userProfile");
+  if (!storedUser) return null;
+  
+  try {
+    const parsed = JSON.parse(storedUser);
+    return {
+      userId: parsed.user_id?.toString(),
+      roleId: parsed.assignment?.role_id?.toString(),
+    };
+  } catch {
+    toast.error("Failed to parse user profile");
+    return null;
+  }
+};
+
+// Helper functions
+const normalizeToArray = <T,>(val: T | T[] | null | undefined): T[] => {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [val];
+};
+
+const normalizeFiles = (files: any) => {
+  if (!files) return [];
+  const arr = Array.isArray(files) ? files : [files];
+  return arr.map((f) => ({ type: f.type, url: f.url }));
+};
+
+const formatUser = (user: any) => {
+  if (!user?.first_name || !user?.last_name) return null;
+  return {
+    name: `${user.first_name} ${user.last_name}`,
+    avatar: getInitials(user.first_name, user.last_name),
+  };
+};
+
 export default function DashboardPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    openTickets: 0,
+    inProgressTasks: 0,
+    resolvedTickets: 0,
+  });
 
-  const stats: DashboardStats[] = [
+  // Initialize user data
+  useEffect(() => {
+    const user = getUserFromStorage();
+    if (user) {
+      setUserId(user.userId);
+      setRoleId(user.roleId);
+    }
+  }, []);
+
+  const isRoleOne = roleId === "1";
+
+  // Build stats array dynamically
+  const dashboardStats: DashboardStats[] = [
     {
       label: "Open Tickets",
-      value: tickets.filter((t) => t.status === "Open").length,
+      value: stats.openTickets,
       color: "blue",
       icon: TicketPlus,
     },
     {
       label: "Tasks In Progress",
-      value: tasks.filter((t) => t.status === "In Progress").length,
+      value: stats.inProgressTasks,
       color: "amber",
       icon: LayoutDashboard,
     },
     {
-      label: "Tickets Resolved Today",
-      value: tickets.filter((t) => t.status === "Resolved").length,
+      label: "Tickets Resolved",
+      value: stats.resolvedTickets,
       color: "green",
       icon: CheckSquare,
     },
   ];
 
-  // Get userId once on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem("userProfile");
-    if (storedUser) {
-      try {
-        const { user_id } = JSON.parse(storedUser);
-        setUserId(user_id);
-      } catch {
-        toast.error("Failed to parse user profile");
-      }
-    }
-  }, []);
+  // Format ticket data (reusable)
+  const formatTicket = (ticket: any): Ticket => ({
+    id: ticket.ticket_id,
+    title: ticket.title,
+    description: ticket.description,
+    status: ticket.status,
+    priority: ticket.priority,
+    createdAt: ticket.created_at,
+    updatedAt: ticket.updated_at,
+    dueDate: ticket.deadline ?? undefined,
+    tags: [],
+    comments: normalizeToArray(ticket.remarks),
+    attachments: normalizeFiles(ticket.files),
+    assignee: formatUser(ticket.assigned_to_user),
+    reporter: formatUser(ticket.assigned_by_user),
+  });
 
-  // Fetch tickets
+  // Format task assignee data
+  const formatTaskAssignee = (item: any): Task[] => {
+    const tasks = normalizeToArray(item.tasks);
+    const user = normalizeToArray(item.users)[0] || normalizeToArray(item.author)[0];
+    
+    return tasks.map((task: any) => {
+      const author = normalizeToArray(task.author)[0];
+      const project = task.task_projects?.projects?.[0] || task.task_projects?.[0]?.projects?.[0];
+
+      return {
+        task_id: task.task_id,
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        due_date: task.due_date,
+        created_at: task.created_at,
+        projectName: project?.name || null,
+        author: {
+          first_name: author?.first_name || "",
+          last_name: author?.last_name || "",
+          avatar: getInitials(author?.first_name, author?.last_name),
+        },
+        assignee: {
+          first_name: user?.first_name || "",
+          last_name: user?.last_name || "",
+          avatar: getInitials(user?.first_name, user?.last_name),
+        },
+      };
+    });
+  };
+
+  // Fetch tickets with role-based filtering
   const fetchTickets = useCallback(async () => {
     if (!userId) return;
 
@@ -74,10 +165,9 @@ export default function DashboardPage() {
     const supabase = createClient();
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tickets")
-        .select(
-          `
+        .select(`
           ticket_id,
           title,
           description,
@@ -90,66 +180,49 @@ export default function DashboardPage() {
           files(type, url),
           assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
           assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
-        `,
-        )
-        .order("created_at", { ascending: false })
-        .limit(5);
+        `)
+        .order("created_at", { ascending: false });
+
+      // Role 1: Only see tickets assigned TO them OR created BY them
+      if (isRoleOne) {
+        query = query.or(`assigned_to.eq.${userId},assigned_by.eq.${userId}`);
+      }
+
+      const { data, error } = await query.limit(5);
 
       if (error) throw error;
 
-      const formattedTickets: Ticket[] = (data || []).map((ticket: any) => ({
-        id: ticket.ticket_id,
-        title: ticket.title,
-        description: ticket.description,
-        status: ticket.status,
-        priority: ticket.priority,
-        createdAt: ticket.created_at,
-        updatedAt: ticket.updated_at,
-        dueDate: ticket.deadline || undefined,
-        tags: [],
-        comments: ticket.remarks
-          ? Array.isArray(ticket.remarks)
-            ? ticket.remarks
-            : [ticket.remarks]
-          : [],
-        attachments: ticket.files
-          ? Array.isArray(ticket.files)
-            ? ticket.files.map((f: any) => ({
-                type: f.type,
-                url: f.url,
-              }))
-            : [{ type: ticket.files.type, url: ticket.files.url }]
-          : [],
-        assignee: ticket.assigned_to_user
-          ? {
-              name: `${ticket.assigned_to_user.first_name} ${ticket.assigned_to_user.last_name}`,
-              avatar: getInitials(
-                ticket.assigned_to_user.first_name,
-                ticket.assigned_to_user.last_name,
-              ),
-            }
-          : null,
-        reporter: ticket.assigned_by_user
-          ? {
-              name: `${ticket.assigned_by_user.first_name} ${ticket.assigned_by_user.last_name}`,
-              avatar: getInitials(
-                ticket.assigned_by_user.first_name,
-                ticket.assigned_by_user.last_name,
-              ),
-            }
-          : null,
-      }));
+      // Fetch counts for stats
+      let countQuery = supabase
+        .from("tickets")
+        .select("status", { count: "exact" });
 
-      setTickets(formattedTickets);
+      if (isRoleOne) {
+        countQuery = countQuery.or(`assigned_to.eq.${userId},assigned_by.eq.${userId}`);
+      }
+
+      const { data: countData } = await countQuery.in("status", ["Open", "Resolved", "Closed"]);
+
+      const countsByStatus = (countData || []).reduce(
+        (acc, { status }) => ({ ...acc, [status]: (acc[status] || 0) + 1 }),
+        {} as Record<string, number>
+      );
+
+      setTickets((data || []).map(formatTicket));
+      setStats(prev => ({
+        ...prev,
+        openTickets: countsByStatus["Open"] || 0,
+        resolvedTickets: (countsByStatus["Resolved"] || 0) + (countsByStatus["Closed"] || 0),
+      }));
     } catch (err) {
       console.error("Error fetching tickets:", err);
       toast.error("Failed to load tickets");
     } finally {
       setLoadingTickets(false);
     }
-  }, [userId]);
+  }, [userId, isRoleOne]);
 
-  // Fetch tasks
+  // Fetch tasks with role-based filtering
   const fetchTasks = useCallback(async () => {
     if (!userId) return;
 
@@ -157,57 +230,59 @@ export default function DashboardPage() {
     const supabase = createClient();
 
     try {
-      const { data: taskAssignees, error } = await supabase
-        .from("task_assignees")
-        .select(
-          `
-          tasks!inner (
+      // For role is not 1, we need both assigned and authored tasks
+      if (!isRoleOne) {
+        // Fetch tasks assigned to user
+        const { data: assignedData, error: assignedError } = await supabase
+          .from("task_assignees")
+          .select(`
+            task_id,
+            user_id,
+            tasks!inner (
+              task_id,
+              created_at,
+              title,
+              author,
+              author (first_name, last_name),
+              due_date,
+              status,
+              priority,
+              description,
+              task_projects!inner (project_id, projects!inner (name))
+            ),
+            users (first_name, last_name)
+          `)
+          .eq("user_id", userId);
+
+        if (assignedError) throw assignedError;
+
+        // Fetch tasks authored by user
+        const { data: authoredData, error: authoredError } = await supabase
+          .from("tasks")
+          .select(`
             task_id,
             created_at,
             title,
+            author,
             author (first_name, last_name),
             due_date,
             status,
             priority,
             description,
-            task_projects!inner (project_id, projects!inner (name))
-          ),
-          users (first_name, last_name)
-        `,
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+            task_projects!inner (project_id, projects!inner (name)),
+            task_assignees (user_id, users (first_name, last_name))
+          `)
+          .eq("author", userId);
 
-      if (error) throw error;
+        if (authoredError) throw authoredError;
 
-      if (!taskAssignees?.length) {
-        setTasks([]);
-        return;
-      }
-
-      const formattedTasks = taskAssignees.flatMap((assignee: any) => {
-        const user = Array.isArray(assignee.users)
-          ? assignee.users[0]
-          : assignee.users;
-
-        const tasks = Array.isArray(assignee.tasks)
-          ? assignee.tasks
-          : [assignee.tasks];
-
-        return tasks.map((task: any) => {
-          const author = Array.isArray(task.author)
-            ? task.author[0]
-            : task.author;
-
-          const taskProject = Array.isArray(task.task_projects)
-            ? task.task_projects[0]
-            : task.task_projects;
-
-          const project = taskProject?.projects
-            ? Array.isArray(taskProject.projects)
-              ? taskProject.projects[0]
-              : taskProject.projects
-            : null;
+        // Merge and deduplicate by task_id
+        const assignedTasks = (assignedData || []).flatMap(formatTaskAssignee);
+        const authoredTasks = (authoredData || []).map((task: any) => {
+          const author = normalizeToArray(task.author)[0];
+          const project = task.task_projects?.[0]?.projects || task.task_projects?.projects?.[0];
+          const assignees = normalizeToArray(task.task_assignees);
+          const primaryAssignee = assignees[0]?.users || author;
 
           return {
             task_id: task.task_id,
@@ -224,44 +299,84 @@ export default function DashboardPage() {
               avatar: getInitials(author?.first_name, author?.last_name),
             },
             assignee: {
-              first_name: user?.first_name || "",
-              last_name: user?.last_name || "",
-              avatar: getInitials(user?.first_name, user?.last_name),
+              first_name: primaryAssignee?.first_name || "",
+              last_name: primaryAssignee?.last_name || "",
+              avatar: getInitials(primaryAssignee?.first_name, primaryAssignee?.last_name),
             },
           };
         });
-      });
 
-      setTasks(formattedTasks);
+        // Combine and remove duplicates
+        const taskMap = new Map();
+        [...assignedTasks, ...authoredTasks].forEach(task => {
+          taskMap.set(task.task_id, task);
+        });
+        setTasks(Array.from(taskMap.values()));
+
+        // Fetch in-progress count
+        const { data: inProgressData } = await supabase
+          .from("task_assignees")
+          .select("tasks!inner(status)")
+          .eq("tasks.status", "In Progress");
+
+        setStats(prev => ({
+          ...prev,
+          inProgressTasks: inProgressData?.length || 0,
+        }));
+      } else {
+        // role-1: fetch only assigned tasks
+        const { data, error } = await supabase
+          .from("task_assignees")
+          .select(`
+            task_id,
+            user_id,
+            tasks!inner (
+              task_id,
+              created_at,
+              title,
+              author,
+              author (first_name, last_name),
+              due_date,
+              status,
+              priority,
+              description,
+              task_projects!inner (project_id, projects!inner (name))
+            ),
+            users (first_name, last_name)
+          `)
+          .eq("user_id", userId);
+
+        if (error) throw error;
+
+        setTasks((data || []).flatMap(formatTaskAssignee));
+
+        // Fetch in-progress count
+        const { data: inProgressData } = await supabase
+          .from("task_assignees")
+          .select("tasks!inner(status)")
+          .eq("user_id", userId)
+          .eq("tasks.status", "In Progress");
+
+        setStats(prev => ({
+          ...prev,
+          inProgressTasks: inProgressData?.length || 0,
+        }));
+      }
     } catch (err) {
       console.error("Error fetching tasks:", err);
       toast.error("Failed to load tasks");
     } finally {
       setLoadingTasks(false);
     }
-  }, [userId]);
+  }, [userId, isRoleOne]);
 
   // Load data when userId is available
   useEffect(() => {
     if (!userId) return;
-
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        await Promise.all([fetchTickets(), fetchTasks()]);
-      } catch (err) {
-        if (isMounted) {
-          toast.error("Failed to load dashboard data");
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
+    
+    Promise.all([fetchTickets(), fetchTasks()]).catch(() => {
+      toast.error("Failed to load dashboard data");
+    });
   }, [userId, fetchTickets, fetchTasks]);
 
   const getStatusColor = (status: string) => {
@@ -298,11 +413,8 @@ export default function DashboardPage() {
     return colors[color] || "bg-gray-50 text-gray-600";
   };
 
-  const completedTasksCount = tasks.filter(
-    (t) => t.status === "Completed",
-  ).length;
-  const taskProgress =
-    tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
+  const completedTasksCount = tasks.filter((t) => t.status === "Completed").length;
+  const taskProgress = tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -319,24 +431,18 @@ export default function DashboardPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <NewTicketModal
-            onSubmit={(ticket) => {
-              console.log("New ticket:", ticket);
-              fetchTickets(); // Refresh after creation
-            }}
+            onSubmit={() => fetchTickets()}
           />
           <NewTaskModal
-            onSubmit={(task) => {
-              console.log("New task:", task);
-              fetchTasks(); // Refresh after creation
-            }}
+            onSubmit={() => fetchTasks()}
           />
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
+        {dashboardStats.map((stat, index) => (
+          <Card key={stat.label} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div>
@@ -347,9 +453,7 @@ export default function DashboardPage() {
                     {stat.value}
                   </p>
                 </div>
-                <div
-                  className={`p-2 rounded-lg ${getStatIconColor(stat.color)}`}
-                >
+                <div className={`p-2 rounded-lg ${getStatIconColor(stat.color)}`}>
                   <stat.icon className="w-5 h-5" />
                 </div>
               </div>

@@ -21,21 +21,21 @@ export default function HomeLayout({
   const navLinks = [
     {
       name: "Dashboard",
-      href: "/home",
+      href: "/home/admin",
       icon: LayoutDashboard,
-      active: pathname === "/home",
+      active: pathname === "/home/admin",
     },
     {
       name: "My Tickets",
-      href: "/home/tickets",
+      href: "/home/admin/tickets",
       icon: Ticket,
-      active: pathname === "/home/tickets",
+      active: pathname === "/home/admin/tickets",
     },
     {
       name: "My Tasks",
-      href: "/home/tasks",
+      href: "/home/admin/tasks",
       icon: CheckSquare,
-      active: pathname === "/home/tasks",
+      active: pathname === "/home/admin/tasks",
     },
   ];
 

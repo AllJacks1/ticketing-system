@@ -176,7 +176,7 @@ export interface Project {
   name: string;
 }
 
-type StatColor = "blue" | "amber" | "green" | "red" | "purple";
+export type StatColor = "blue" | "amber" | "green" | "red" | "purple";
 
 export interface DashboardStats {
   label: string;
