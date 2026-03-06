@@ -1,15 +1,16 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { StatColor } from "./types";
+import { StatColor, Task } from "./types";
 import { LayoutDashboard, TicketPlus, CheckSquare, Archive } from "lucide-react";
+import { toast } from "sonner";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 export const getInitials = (first_name: string, last_name: string) => {
-  const firstInitial = first_name ? first_name[0].toUpperCase() : ""; 
-  const lastInitial = last_name ? last_name[0].toUpperCase() : ""; 
+  const firstInitial = first_name ? first_name[0].toUpperCase() : "";
+  const lastInitial = last_name ? last_name[0].toUpperCase() : "";
   return `${firstInitial}${lastInitial}`;
 };
 
@@ -32,14 +33,14 @@ export const formatManilaTime = (utcString: string) => {
 // Helper to format relative due date
 export const formatDueDate = (dateString: string): string => {
   if (!dateString) return "No due date";
-  
+
   const due = new Date(dateString);
   const now = new Date();
-  
+
   // Convert to Manila time if needed, or use UTC
   const diffTime = due.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
   if (diffDays === 0) return "Due today";
   if (diffDays === 1) return "1 day";
@@ -49,11 +50,11 @@ export const formatDueDate = (dateString: string): string => {
 // Helper to check if urgent (2 days or less)
 export const isUrgent = (dateString: string): boolean => {
   if (!dateString) return false;
-  
+
   const due = new Date(dateString);
   const now = new Date();
   const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  
+
   return diffDays <= 2 && diffDays >= 0;
 };
 
@@ -73,6 +74,53 @@ export const formatUser = (user: any) => {
     name: `${user.first_name} ${user.last_name}`,
     avatar: getInitials(user.first_name, user.last_name),
   };
+};
+
+export const getUserFromStorage = () => {
+  const storedUser = localStorage.getItem("userProfile");
+  if (!storedUser) return null;
+
+  try {
+    const parsed = JSON.parse(storedUser);
+    return {
+      userId: parsed.user_id?.toString(),
+      roleId: parsed.assignment?.role_id?.toString(),
+    };
+  } catch {
+    toast.error("Failed to parse user profile");
+    return null;
+  }
+};
+
+export const formatTaskAssignee = (item: any): Task[] => {
+  const tasks = normalizeToArray(item.tasks);
+  const user = normalizeToArray(item.users)[0] || normalizeToArray(item.author)[0];
+
+  return tasks.map((task: any) => {
+    const author = normalizeToArray(task.author)[0];
+    const project = task.task_projects?.projects?.[0] || task.task_projects?.[0]?.projects?.[0];
+
+    return {
+      task_id: task.task_id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      due_date: task.due_date,
+      created_at: task.created_at,
+      projectName: project?.name || null,
+      author: {
+        first_name: author?.first_name || "",
+        last_name: author?.last_name || "",
+        avatar: getInitials(author?.first_name, author?.last_name),
+      },
+      assignee: {
+        first_name: user?.first_name || "",
+        last_name: user?.last_name || "",
+        avatar: getInitials(user?.first_name, user?.last_name),
+      },
+    };
+  });
 };
 
 export const TICKET_STATUS_CONFIG: Record<

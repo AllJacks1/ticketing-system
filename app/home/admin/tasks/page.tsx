@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,10 +33,18 @@ import TaskDetailModal from "./TaskDetailModal";
 import { createClient } from "@/supabase/client";
 import { Task } from "@/lib/types";
 import { toast } from "sonner";
-import { formatManilaTime, getInitials } from "@/lib/utils";
+import {
+  formatManilaTime,
+  formatTaskAssignee,
+  getInitials,
+  getUserFromStorage,
+  normalizeToArray,
+} from "@/lib/utils";
 
 export default function TasksPage() {
-  const [fetchingTasks, setFetchingTasks] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [roleId, setRoleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -48,76 +56,81 @@ export default function TasksPage() {
   const [pageSize, setPageSize] = useState(5);
 
   useEffect(() => {
-    fetchTasks();
+    const user = getUserFromStorage();
+    if (user) {
+      setUserId(user.userId);
+      setRoleId(user.roleId);
+    }
   }, []);
 
-  const fetchTasks = async () => {
+  const isRoleOne = false;
+
+  const fetchTasks = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingTasks(true);
+    const supabase = createClient();
+
     try {
-      setFetchingTasks(true);
-      const supabase = createClient();
+      // For role is not 1, we need both assigned and authored tasks
+      if (!isRoleOne) {
+        // Fetch tasks assigned to user
+        const { data: assignedData, error: assignedError } = await supabase
+          .from("task_assignees")
+          .select(
+            `
+              task_id,
+              user_id,
+              tasks!inner (
+                task_id,
+                created_at,
+                title,
+                author,
+                author (first_name, last_name),
+                due_date,
+                status,
+                priority,
+                description,
+                task_projects!inner (project_id, projects!inner (name))
+              ),
+              users (first_name, last_name)
+            `,
+          )
+          .eq("user_id", userId);
 
-      const userId = localStorage.getItem("userProfile")
-        ? JSON.parse(localStorage.getItem("userProfile")!).user_id
-        : null;
+        if (assignedError) throw assignedError;
 
-      if (!userId) {
-        toast.error("User not found. Cannot fetch tasks.");
-        return false;
-      }
+        // Fetch tasks authored by user
+        const { data: authoredData, error: authoredError } = await supabase
+          .from("tasks")
+          .select(
+            `
+              task_id,
+              created_at,
+              title,
+              author,
+              author (first_name, last_name),
+              due_date,
+              status,
+              priority,
+              description,
+              task_projects!inner (project_id, projects!inner (name)),
+              task_assignees (user_id, users (first_name, last_name))
+            `,
+          )
+          .eq("author", userId);
 
-      const { data: taskAssignees, error: errorTaskAssignees } = await supabase
-        .from("task_assignees")
-        .select(
-          `
-        tasks!inner (
-          task_id,
-          created_at,
-          title,
-          author (first_name, last_name),
-          due_date,
-          status,
-          priority,
-          description,
-          task_projects!inner (project_id, projects!inner (name))
-        ),
-        users (first_name, last_name)
-      `,
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        if (authoredError) throw authoredError;
 
-      if (errorTaskAssignees) throw errorTaskAssignees;
-
-      if (!taskAssignees?.length) {
-        setTasks([]);
-        return true;
-      }
-
-      // Flatten nested structure
-      const formattedTasks = taskAssignees.flatMap((assignee: any) => {
-        const user = Array.isArray(assignee.users)
-          ? assignee.users[0]
-          : assignee.users;
-
-        const tasks = Array.isArray(assignee.tasks)
-          ? assignee.tasks
-          : [assignee.tasks];
-
-        return tasks.map((task: any) => {
-          const author = Array.isArray(task.author)
-            ? task.author[0]
-            : task.author;
-
-          // Navigate nested project structure
-          const taskProject = Array.isArray(task.task_projects)
-            ? task.task_projects[0]
-            : task.task_projects;
-
-          const project = taskProject?.projects
-            ? Array.isArray(taskProject.projects)
-              ? taskProject.projects[0]
-              : taskProject.projects
-            : null;
+        // Merge and deduplicate by task_id
+        const assignedTasks = (assignedData || []).flatMap(formatTaskAssignee);
+        const authoredTasks = (authoredData || []).map((task: any) => {
+          const author = normalizeToArray(task.author)[0];
+          const project =
+            task.task_projects?.[0]?.projects ||
+            task.task_projects?.projects?.[0];
+          const assignees = normalizeToArray(task.task_assignees);
+          const primaryAssignee = assignees[0]?.users || author;
 
           return {
             task_id: task.task_id,
@@ -134,24 +147,61 @@ export default function TasksPage() {
               avatar: getInitials(author?.first_name, author?.last_name),
             },
             assignee: {
-              first_name: user?.first_name || "",
-              last_name: user?.last_name || "",
-              avatar: getInitials(user?.first_name, user?.last_name),
+              first_name: primaryAssignee?.first_name || "",
+              last_name: primaryAssignee?.last_name || "",
+              avatar: getInitials(
+                primaryAssignee?.first_name,
+                primaryAssignee?.last_name,
+              ),
             },
           };
         });
-      });
 
-      setTasks(formattedTasks);
-      return true;
+        // Combine and remove duplicates
+        const taskMap = new Map();
+        [...assignedTasks, ...authoredTasks].forEach((task) => {
+          taskMap.set(task.task_id, task);
+        });
+        setTasks(Array.from(taskMap.values()));
+      } else {
+        // role-1: all tasks
+        const { data, error } = await supabase.from("task_assignees").select(`
+              task_id,
+              user_id,
+              tasks!inner (
+                task_id,
+                created_at,
+                title,
+                author,
+                author (first_name, last_name),
+                due_date,
+                status,
+                priority,
+                description,
+                task_projects!inner (project_id, projects!inner (name))
+              ),
+              users (first_name, last_name)
+            `);
+
+        if (error) throw error;
+
+        setTasks((data || []).flatMap(formatTaskAssignee));
+      }
     } catch (err) {
       console.error("Error fetching tasks:", err);
-      toast.error("Failed to fetch tasks");
-      return false;
+      toast.error("Failed to load tasks");
     } finally {
-      setFetchingTasks(false);
+      setLoadingTasks(false);
     }
-  };
+  }, [userId, isRoleOne]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    Promise.all([fetchTasks()]).catch(() => {
+      toast.error("Failed to load dashboard data");
+    });
+  }, [userId, fetchTasks]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -366,7 +416,7 @@ export default function TasksPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {fetchingTasks ? (
+          {loadingTasks ? (
             <div className="p-12 flex flex-col items-center justify-center text-gray-500">
               <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
               <p className="text-sm">Loading tasks...</p>

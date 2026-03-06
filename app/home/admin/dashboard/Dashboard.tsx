@@ -13,8 +13,13 @@ import { Task, Ticket } from "@/lib/types";
 import {
   formatDueDate,
   formatManilaTime,
+  formatTaskAssignee,
+  formatUser,
   getInitials,
+  getUserFromStorage,
   isUrgent,
+  normalizeFiles,
+  normalizeToArray,
 } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -24,43 +29,6 @@ interface DashboardStats {
   color: "blue" | "amber" | "green" | "purple";
   icon: React.ElementType;
 }
-
-// Helper to safely parse user from localStorage
-const getUserFromStorage = () => {
-  const storedUser = localStorage.getItem("userProfile");
-  if (!storedUser) return null;
-  
-  try {
-    const parsed = JSON.parse(storedUser);
-    return {
-      userId: parsed.user_id?.toString(),
-      roleId: parsed.assignment?.role_id?.toString(),
-    };
-  } catch {
-    toast.error("Failed to parse user profile");
-    return null;
-  }
-};
-
-// Helper functions
-const normalizeToArray = <T,>(val: T | T[] | null | undefined): T[] => {
-  if (!val) return [];
-  return Array.isArray(val) ? val : [val];
-};
-
-const normalizeFiles = (files: any) => {
-  if (!files) return [];
-  const arr = Array.isArray(files) ? files : [files];
-  return arr.map((f) => ({ type: f.type, url: f.url }));
-};
-
-const formatUser = (user: any) => {
-  if (!user?.first_name || !user?.last_name) return null;
-  return {
-    name: `${user.first_name} ${user.last_name}`,
-    avatar: getInitials(user.first_name, user.last_name),
-  };
-};
 
 export default function DashboardPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -124,38 +92,6 @@ export default function DashboardPage() {
     assignee: formatUser(ticket.assigned_to_user),
     reporter: formatUser(ticket.assigned_by_user),
   });
-
-  // Format task assignee data
-  const formatTaskAssignee = (item: any): Task[] => {
-    const tasks = normalizeToArray(item.tasks);
-    const user = normalizeToArray(item.users)[0] || normalizeToArray(item.author)[0];
-    
-    return tasks.map((task: any) => {
-      const author = normalizeToArray(task.author)[0];
-      const project = task.task_projects?.projects?.[0] || task.task_projects?.[0]?.projects?.[0];
-
-      return {
-        task_id: task.task_id,
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        due_date: task.due_date,
-        created_at: task.created_at,
-        projectName: project?.name || null,
-        author: {
-          first_name: author?.first_name || "",
-          last_name: author?.last_name || "",
-          avatar: getInitials(author?.first_name, author?.last_name),
-        },
-        assignee: {
-          first_name: user?.first_name || "",
-          last_name: user?.last_name || "",
-          avatar: getInitials(user?.first_name, user?.last_name),
-        },
-      };
-    });
-  };
 
   // Fetch tickets with role-based filtering
   const fetchTickets = useCallback(async () => {
@@ -324,7 +260,7 @@ export default function DashboardPage() {
           inProgressTasks: inProgressData?.length || 0,
         }));
       } else {
-        // role-1: fetch only assigned tasks
+        // role-1: fetch all tasks
         const { data, error } = await supabase
           .from("task_assignees")
           .select(`
