@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import NewTicketModal from "@/app/home/admin/tickets/NewTicketModal";
 import { createClient } from "@/supabase/client";
 import { DashboardStats, Ticket } from "@/lib/types";
+import { AlertCircle } from "lucide-react";
 import {
   formatManilaTime,
   TICKET_STATUS_CONFIG,
@@ -221,7 +222,11 @@ export default function DashboardPage() {
             </div>
           ) : tickets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <p>No tickets found</p>
+              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg font-medium">No tickets found</p>
+              <p className="text-sm">
+                There are no tickets to show as on now
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

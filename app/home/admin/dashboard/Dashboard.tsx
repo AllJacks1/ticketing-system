@@ -10,16 +10,15 @@ import NewTicketModal from "@/app/home/admin/tickets/NewTicketModal";
 import NewTaskModal from "../tasks/NewTaskModal";
 import { createClient } from "@/supabase/client";
 import { Task, Ticket } from "@/lib/types";
+import { AlertCircle } from "lucide-react";
 import {
   formatDueDate,
   formatManilaTime,
   formatTaskAssignee,
   formatTicket,
-  formatUser,
   getInitials,
   getUserFromStorage,
   isUrgent,
-  normalizeFiles,
   normalizeToArray,
 } from "@/lib/utils";
 import { toast } from "sonner";
@@ -404,7 +403,11 @@ export default function DashboardPage() {
             </div>
           ) : tickets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <p>No tickets found</p>
+              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg font-medium">No tickets found</p>
+              <p className="text-sm">
+                There are no tickets to show as of now
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
@@ -491,7 +494,13 @@ export default function DashboardPage() {
             </div>
           ) : tasks.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <p>No tasks assigned</p>
+              <div className="p-8 text-center text-gray-500">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-lg font-medium">No tasks found</p>
+                  <p className="text-sm">
+                    No tasks assigned as of now
+                  </p>
+                </div>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
