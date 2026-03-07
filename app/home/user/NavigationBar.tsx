@@ -197,7 +197,7 @@ export function NavigationBar({
           {/* Logo & Brand */}
           <div
             className="flex items-center gap-8 hover:cursor-pointer"
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/home/user")}
           >
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
