@@ -48,6 +48,7 @@ export default function TicketsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(5);
 
   useEffect(() => {
@@ -62,6 +63,9 @@ export default function TicketsPage() {
 
   // Fetch tickets from Supabase
   const fetchTickets = useCallback(async () => {
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
+
     if (!userId) return;
 
     setLoadingTickets(true);
@@ -85,6 +89,7 @@ export default function TicketsPage() {
             assigned_by_user:users!tickets_assigned_by_fkey(first_name, last_name),
             assigned_to_user:users!tickets_assigned_to_fkey(first_name, last_name)
           `,
+          { count: "exact" },
         )
         .order("created_at", { ascending: false });
 
@@ -93,7 +98,8 @@ export default function TicketsPage() {
         query = query.or(`assigned_to.eq.${userId},assigned_by.eq.${userId}`);
       }
 
-      const { data, error } = await query.limit(5);
+      const { data, error, count } = await query.range(from, to);
+      setTotalCount(count || 0);
 
       if (error) throw error;
 
@@ -115,7 +121,7 @@ export default function TicketsPage() {
     } finally {
       setLoadingTickets(false);
     }
-  }, [userId, isRoleOne]);
+  }, [userId, isRoleOne, currentPage, pageSize]);
 
   useEffect(() => {
     if (!userId) return;
@@ -165,10 +171,9 @@ export default function TicketsPage() {
   });
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredTickets.length / pageSize);
+  const totalPages = Math.ceil(totalCount / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
   const handleFilterChange = (
@@ -320,7 +325,7 @@ export default function TicketsPage() {
           ) : (
             <>
               <div className="divide-y divide-gray-200">
-                {paginatedTickets.map((ticket) => (
+                {filteredTickets.map((ticket) => (
                   <TicketDetailModal
                     key={ticket.id}
                     ticket={ticket}
